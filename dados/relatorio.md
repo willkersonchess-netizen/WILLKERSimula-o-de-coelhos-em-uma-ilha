@@ -1,27 +1,12 @@
-# Ilha 40 — Relatório automático
+# Ilha — 40 anos — relatório automático
 
-Gerado em 2026-11-08T07:29:08.868Z · motor v2.0.0 · semente 42
+Gerado em 2026-11-08T08:09:58.969Z · motor v2.1.0 · semente 42
 
-## Resumo da execução original
+População: 2 → máx 6704 → final 0 · nascimentos 37509 · mortes 37511 · colapsos 6
 
-| Indicador | Valor |
-|---|---|
-| População inicial | 2 |
-| População máxima | 6704 (registro 18) |
-| População final | 0 |
-| Nascimentos | 37509 |
-| Mortes | 37511 |
-| Crises alimentares | 5 |
-| Colapsos (>50% em uma estação) | 6 |
-| Saúde final do ecossistema | 42.9/100 |
+Monte Carlo (100 rep.): P(extinção) = 69% · N final mediano 0
 
-## Monte Carlo (100 repetições)
-
-- Probabilidade de extinção em 40 anos: **69%**
-- População final (mediana / P5–P95): 0 / 0–327
-- Colapsos médios: 3.59
-
-## As 16 perguntas
+## Perguntas
 
 **1. Em qual ano ocorreu a primeira grande explosão populacional?**
 
@@ -87,19 +72,25 @@ Nesta execução, sim: a população foi extinta no inverno do ano 38. Veja as r
 
 Índice de saúde do ecossistema 43/100. Grama 121 kg/ha (vigor 48%), arbustos 1% do inicial, árvore viva, solo com 386,2 t/ha de erosão acumulada e 27.0 cm de profundidade; 0 coelhos.
 
-## Cenários (40 repetições cada)
+## Cenários (30 repetições cada)
 
-| Cenário | P(extinção) | N final (mediana) | Colapsos | Vigor da grama | Arbustos |
+| Cenário | P(extinção) | N médio | N final | Colapsos | Predador sobrevive |
 |---|---|---|---|---|---|
-| Chuva média (original) | 70% | 0 | 3.35 | 79% | 17% |
-| A · Primaveras secas | 93% | 0 | 2.55 | 86% | 18% |
-| B · Primaveras chuvosas | 53% | 0 | 4.55 | 63% | 16% |
-| C · Poucos arbustos | 70% | 0 | 3.48 | 75% | 29% |
-| D · Muitos arbustos | 73% | 0 | 4.22 | 76% | 10% |
-| E · Recuperação lenta | 100% | 0 | 1.48 | 90% | 13% |
-| F · Recuperação rápida | 15% | 42 | 6.43 | 51% | 16% |
-| G · Depressão endogâmica forte | 68% | 0 | 1.48 | 89% | 26% |
-| H · Depressão endogâmica fraca | 75% | 0 | 3.98 | 77% | 18% |
-| Dois machos | 100% | 0 | 0 | 100% | 126% |
-| Casal de filhotes (1 mês) | 88% | 0 | 1.58 | 91% | 69% |
-| Fêmea infértil | 100% | 0 | 0 | 100% | 126% |
+| Chuva média (original) | 70% | 310 | 0 | 3.27 | — |
+| A · Primaveras secas | 93% | 231 | 0 | 2.6 | — |
+| B · Primaveras chuvosas | 53% | 376 | 0 | 4.43 | — |
+| C · Poucos arbustos | 67% | 282 | 0 | 3.43 | — |
+| D · Muitos arbustos | 70% | 361 | 0 | 4.27 | — |
+| E · Recuperação lenta | 100% | 180 | 0 | 1.5 | — |
+| F · Recuperação rápida | 17% | 462 | 42 | 6.33 | — |
+| G · Depressão endogâmica forte | 73% | 285 | 0 | 1.33 | — |
+| H · Depressão endogâmica fraca | 73% | 293 | 0 | 3.93 | — |
+| Gatos ferais (4 no ano 3) | 57% | 294 | 0 | 2.57 | 0% |
+| Raposas (casal no ano 3) | 67% | 285 | 0 | 3.13 | 0% |
+| Arminhos (4 no ano 3) | 53% | 339 | 0 | 4 | 0% |
+| Aves de rapina (desde o ano 1) | 7% | 310 | 90 | 2.43 | 93% |
+| Gatos junto com os coelhos (ano 1) | 60% | 315 | 0 | 2.4 | 0% |
+| Gatos + aves de rapina | 20% | 312 | 67 | 1.83 | 80% |
+| Dois machos | 100% | 0 | 0 | 0 | — |
+| Casal de filhotes (1 mês) | 83% | 214 | 0 | 1.8 | — |
+| Fêmea infértil | 100% | 0 | 0 | 0 | — |

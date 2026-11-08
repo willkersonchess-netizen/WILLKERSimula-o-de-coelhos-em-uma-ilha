@@ -2,8 +2,8 @@
 """
 ILHA 40 - Analise estatistica complementar dos resultados.
 
-Le dados/resultados.json (gerado por `node simular.js`) e grava
-dados/analise.txt com analises que o site nao mostra diretamente:
+Le dados/resultados.json (ou resultados100.json com o argumento 100),
+gerado por `node simular.js`, e grava dados/analise[100].txt com analises que o site nao mostra diretamente:
   - periodo dos ciclos populacionais (autocorrelacao da serie log)
   - relacao entre chuva da primavera e crescimento populacional
   - defasagem entre o pico populacional e a degradacao da grama
@@ -18,8 +18,9 @@ import sys
 from pathlib import Path
 
 PASTA = Path(__file__).resolve().parent
-ARQ = PASTA / "dados" / "resultados.json"
-SAIDA = PASTA / "dados" / "analise.txt"
+SUF = "100" if len(sys.argv) > 1 and sys.argv[1] == "100" else ""
+ARQ = PASTA / "dados" / f"resultados{SUF}.json"
+SAIDA = PASTA / "dados" / f"analise{SUF}.txt"
 EST = ["Primavera", "Verao", "Outono", "Inverno"]
 
 
@@ -56,7 +57,7 @@ def main():
     w = L.append
 
     w("=" * 70)
-    w(" ILHA 40 - ANALISE ESTATISTICA COMPLEMENTAR")
+    w(" ILHA - ANALISE ESTATISTICA COMPLEMENTAR")
     w("=" * 70)
     w(f" Motor v{base['versao']} | semente {base['parametros']['semente']} | gerado em {base.get('gerado')}")
     w("")
@@ -144,10 +145,12 @@ def main():
     cen = dados.get("cenarios") or []
     if cen:
         w(f"7. CENARIOS ({dados['meta']['repsCenario']} repeticoes cada, mesmas sementes)")
-        w(f"   {'Cenario':<34}{'P(ext)':>8}{'Nfinal':>9}{'Colapsos':>10}{'Grama':>8}{'Arbustos':>10}")
+        w(f"   {'Cenario':<38}{'Grupo':<12}{'P(ext)':>8}{'N medio':>9}{'Colapsos':>10}{'Grama':>8}{'Pred.vivo':>10}")
         for c in cen:
             m = c["mc"]
-            w(f"   {c['nome']:<34}{100 * m['pExtincao']:>7.0f}%{m['NfinalMed']:>9}{m['colapsosMed']:>10.2f}{100 * m['RfinalMed']:>7.0f}%{100 * m['HsFinalMed']:>9.0f}%")
+            ps = m.get("pPredSobrevive")
+            pstxt = "-" if ps is None else f"{100 * ps:.0f}%"
+            w(f"   {c['nome']:<38}{c.get('grupo', ''):<12}{100 * m['pExtincao']:>7.0f}%{m.get('NmedioMed', 0):>9}{m['colapsosMed']:>10.2f}{100 * m['RfinalMed']:>7.0f}%{pstxt:>10}")
         w("")
     w("=" * 70)
 

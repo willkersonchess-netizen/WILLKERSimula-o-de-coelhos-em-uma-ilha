@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '2.0.0';
+  const VERSAO = '2.1.0';
   const ESTACOES = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
   /* ---------------- Perfis sazonais (12 meses, começando na primavera) ---- */
@@ -82,7 +82,9 @@
     endogamia_B_fec: 0.6,
     endogamia_mult: 1.0,
     surtos_doenca: true,
-    fundadores: 'par_adulto'
+    fundadores: 'par_adulto',
+    presas_alt: 1.0,        // disponibilidade de presas alternativas para os predadores (× padrão)
+    predadores: []          // ex.: [{ tipo: 'gato', ano: 3, n: 4 }]
   };
 
   const PARAM_META = [
@@ -97,6 +99,7 @@
     { k: 'reproducao_mult', rotulo: 'Taxa de reprodução', min: 0.5, max: 1.5, passo: 0.05, un: '× padrão', grupo: 'Coelhos', desc: 'Multiplica a probabilidade mensal de concepção.' },
     { k: 'agua_livre', rotulo: 'Disponibilidade de água doce', min: 0, max: 1, passo: 0.05, un: '0–1', grupo: 'Coelhos', desc: '0 = sem água livre (só a da forragem e da chuva); 1 = nascente permanente.' },
     { k: 'endogamia_mult', rotulo: 'Efeito da consanguinidade', min: 0, max: 4, passo: 0.25, un: '× padrão', grupo: 'Genética', desc: 'Multiplica os equivalentes letais (padrão 2B = 3,14 na sobrevivência juvenil).' },
+    { k: 'presas_alt', rotulo: 'Presas alternativas para predadores', min: 0, max: 1.5, passo: 0.1, un: '× padrão', grupo: 'Predadores', desc: 'Aves, insetos e lagartos que predadores comem além dos coelhos. 0 = só coelhos.' },
     { k: 'K_referencia', rotulo: 'Capacidade de referência (primavera média)', min: 1000, max: 15000, passo: 500, un: 'coelhos', grupo: 'Ilha', desc: 'Premissa do experimento. O crescimento potencial da grama é calibrado a partir dela.' }
   ];
 
@@ -112,13 +115,43 @@
     { id: 'H', nome: 'H · Depressão endogâmica fraca', curto: 'Endogamia fraca', p: { endogamia_mult: 0.25 } }
   ];
 
+  const CENARIOS_PRED = [
+    { id: 'P1', nome: 'Gatos ferais (4 no ano 3)', curto: 'Gatos', p: { predadores: [{ tipo: 'gato', ano: 3, n: 4 }] } },
+    { id: 'P2', nome: 'Raposas (casal no ano 3)', curto: 'Raposas', p: { predadores: [{ tipo: 'raposa', ano: 3, n: 2 }] } },
+    { id: 'P3', nome: 'Arminhos (4 no ano 3)', curto: 'Arminhos', p: { predadores: [{ tipo: 'arminho', ano: 3, n: 4 }] } },
+    { id: 'P4', nome: 'Aves de rapina (desde o ano 1)', curto: 'Aves de rapina', p: { predadores: [{ tipo: 'rapina', ano: 1, n: 2 }] } },
+    { id: 'P5', nome: 'Gatos junto com os coelhos (ano 1)', curto: 'Gatos no ano 1', p: { predadores: [{ tipo: 'gato', ano: 1, n: 2 }] } },
+    { id: 'P6', nome: 'Gatos + aves de rapina', curto: 'Gatos + aves', p: { predadores: [{ tipo: 'gato', ano: 3, n: 4 }, { tipo: 'rapina', ano: 1, n: 2 }] } }
+  ];
+
   const FUNDADORES_ALT = [
     { id: 'dois_machos', nome: 'Dois machos', p: { fundadores: 'dois_machos' } },
     { id: 'dois_filhotes', nome: 'Casal de filhotes (1 mês)', p: { fundadores: 'dois_filhotes' } },
     { id: 'femea_infertil', nome: 'Fêmea infértil', p: { fundadores: 'femea_infertil' } }
   ];
 
-  const CAUSAS = ['fome', 'desidratacao', 'doenca', 'surto', 'idade', 'neonatal', 'endogamia', 'clima', 'basal'];
+  const CAUSAS = ['fome', 'desidratacao', 'doenca', 'surto', 'idade', 'neonatal', 'endogamia', 'clima', 'basal', 'predacao'];
+
+  /* ---------------- Predadores ----------------
+     need   : coelhos-equivalentes adultos comidos por predador por mês, se só comesse coelhos
+     h      : densidade de meia-saturação (coelhos vulneráveis/ha) da resposta funcional tipo II
+     juv    : preferência relativa por coelhos jovens (< 4 meses)
+     prot   : quanto a cobertura vegetal (grama alta + arbustos) protege os coelhos desse predador
+     alt    : fração da necessidade que presas alternativas (aves marinhas, insetos, lagartos) podem suprir
+     altCap : nº de predadores que as presas alternativas da ilha sustentam por inteiro
+     repro  : meses de nascimento (0 = 1º mês da primavera); ninhada e sobrevivência dos filhotes
+     mort   : mortalidade basal anual; fome: mortalidade mensal extra quando a ingestão cai a 0
+     migra  : aves de rapina não se reproduzem na ilha; vêm e vão conforme a oferta de presas */
+  const PRED_TIPOS = {
+    gato: { nome: 'Gato feral', icone: '🐈', need: 9, h: 0.6, juv: 2.5, prot: 0.6, alt: 0.75, altCap: 3, repro: [0, 1, 3, 4], pRepro: 0.65, ninhada: 4, sobrevFilhote: 0.45, mort: 0.2, fome: 0.6, migra: false,
+      resumo: 'Caçador solitário e de emboscada. Prefere filhotes e coelhos jovens; também come aves e insetos, por isso pode persistir mesmo quando os coelhos ficam raros.' },
+    raposa: { nome: 'Raposa-vermelha', icone: '🦊', need: 14, h: 0.8, juv: 2, prot: 0.45, alt: 0.35, altCap: 1.5, repro: [0], pRepro: 0.8, ninhada: 4.5, sobrevFilhote: 0.5, mort: 0.3, fome: 0.7, migra: false,
+      resumo: 'Predador grande, come mais por dia e cava ninhos. Uma ninhada por ano, na primavera. Depende muito de presas abundantes.' },
+    arminho: { nome: 'Arminho', icone: '🐾', need: 5, h: 0.5, juv: 4, prot: 0.15, alt: 0.45, altCap: 4, repro: [1], pRepro: 0.9, ninhada: 6, sobrevFilhote: 0.35, mort: 0.5, fome: 0.8, migra: false,
+      resumo: 'Pequeno e ágil, entra nas tocas (a vegetação quase não protege os coelhos dele). Mata sobretudo filhotes. Vive pouco e se reproduz muito.' },
+    rapina: { nome: 'Aves de rapina', icone: '🦅', need: 6, h: 1.2, juv: 3, prot: 0.75, alt: 0.5, altCap: 0, max: 12, migra: true,
+      resumo: 'Gaviões e águias que chegam voando. Não se reproduzem na ilha: o número acompanha a oferta de coelhos. Cobertura vegetal protege bem contra elas.' }
+  };
 
   /* ---------------- Utilidades ---------------- */
   function mulberry32(seed) {
@@ -155,6 +188,9 @@
     const P = Object.assign({}, PADRAO);
     if (p) for (const k in p) if (p[k] !== undefined && p[k] !== null && p[k] !== '') P[k] = p[k];
     for (const k in PADRAO) if (typeof PADRAO[k] === 'number') P[k] = Number(P[k]);
+    P.predadores = (Array.isArray(P.predadores) ? P.predadores : [])
+      .filter(x => x && PRED_TIPOS[x.tipo] && +x.n > 0)
+      .map(x => ({ tipo: x.tipo, ano: Math.max(1, Math.floor(+x.ano || 1)), n: Math.max(1, Math.floor(+x.n)) }));
     P.semente = Math.floor(P.semente);
     P.anos = clamp(Math.floor(P.anos), 1, 100);
     return P;
@@ -442,6 +478,10 @@
     const clima = gerarClima(P, rngC);
     const cal = calibrar(P);
     const E = estadoInicial(P, cal);
+    // predadores configurados (chegam no ano indicado)
+    E.pred = {};
+    P.predadores.forEach(x => { if (!E.pred[x.tipo]) E.pred[x.tipo] = { n: 0, I: 1, chegou: false, extinto: false }; });
+    const chegadas = P.predadores.map(x => ({ tipo: x.tipo, mes: (x.ano - 1) * 12, n: x.n }));
     const pop = novaPop(L);
     const genealogia = [];
     let proxId = 0;
@@ -478,7 +518,7 @@
         ninhadas: 0, reabs: 0, nascVivosNinho: 0, sumFnasc: 0, nNasc: 0,
         prodVerde: 0, prodBroto: 0, consVerde: 0, consSeca: 0, consBroto: 0, consArv: 0, consCasca: 0, consRaiz: 0,
         decomp: 0, arbCresc: 0, arbMort: 0, erosao: 0, chuva: 0, somaT: 0, somaI: 0, nI: 0, somaUmid: 0,
-        digTot: 0, eventos: [], stock0: estoqueDigestivel(E, A), R0: E.R, surtoMeses: 0,
+        digTot: 0, eventos: [], stock0: estoqueDigestivel(E, A), R0: E.R, surtoMeses: 0, predNasc: 0, predMortes: 0,
         dietaDig: { verde: 0, broto: 0, arvore: 0, seca: 0, casca: 0, raiz: 0 }
       };
     }
@@ -536,7 +576,11 @@
         pressao: K > 0 ? r3(st.N / K) : null,
         saude: r1(sh.total), saudeComp: { grama: r3(sh.grassScore), arbustos: r3(sh.shrubScore), arvore: r3(sh.treeScore), solo: r3(sh.soilScore), equilibrio: r3(sh.bal) },
         tocas: Math.round(capacidadeTocas(P, E)),
-        surto: a ? a.surtoMeses > 0 : false
+        surto: a ? a.surtoMeses > 0 : false,
+        pred: Object.fromEntries(Object.keys(E.pred).map(t => [t, E.pred[t].n])),
+        predTotal: Object.values(E.pred).reduce((s, x) => s + x.n, 0),
+        predIngestao: Object.fromEntries(Object.keys(E.pred).map(t => [t, r2(E.pred[t].I)])),
+        predNasc: a ? a.predNasc : 0, predMortes: a ? a.predMortes : 0
       };
       if (extra) Object.assign(reg, extra);
       registros.push(reg);
@@ -642,7 +686,40 @@
         if (rng() < pS) { E.surto = 2 + Math.floor(rng() * 2); E.surtoInt = 0.06 + 0.09 * rng(); acc.eventos.push({ mes: mo % 3, tipo: 'surto' }); surtosTotal++; acc.surtoMeses++; }
       }
       const coccid = Math.min(0.3, 0.035 * (dens / 25) * (0.6 + 0.8 * veg.W));
-      const hz = new Float64Array(9);
+
+      /* 5b. predação: resposta funcional tipo II sobre coelhos "vulneráveis".
+         Jovens e coelhos em má condição são mais vulneráveis; a cobertura
+         vegetal (grama + arbustos) protege conforme o tipo de predador. */
+      chegadas.forEach(c => { if (c.mes === m) { E.pred[c.tipo].n += c.n; E.pred[c.tipo].chegou = true; E.pred[c.tipo].extinto = false; acc.eventos.push({ mes: mo % 3, tipo: 'chegada_' + c.tipo }); } });
+      let lamJ = 0, lamA = 0;
+      const predEaten = {};
+      const tiposAtivos = Object.keys(E.pred).filter(t => E.pred[t].n > 0);
+      if (tiposAtivos.length && N0 > 0) {
+        let SJ = 0, SA = 0;
+        for (let i = 0; i < N0; i++) { const cf = 1 + 0.8 * Math.max(0, 0.8 - pop.cond[i]); if (pop.idade[i] < P.maturidade_meses) SJ += cf; else SA += cf; }
+        const arbRel = clamp(E.Hs / E.Hs0, 0, 1);
+        let totK = 0;
+        const Ks = {};
+        tiposAtivos.forEach(t => {
+          const T = PRED_TIPOS[t], Pn = E.pred[t].n;
+          const expo = 1 - T.prot * (0.6 * cov + 0.4 * arbRel);
+          const Wt = T.juv * SJ + SA;
+          const Dv = Wt / A * expo;
+          const kPer = T.need * 1.25 * Dv * Dv / (Dv * Dv + T.h * T.h); // tipo III: troca de presa quando coelhos ficam raros
+          Ks[t] = { K: Pn * kPer, Wt, T };
+          totK += Pn * kPer;
+        });
+        const cap = 0.6 * N0, esc = totK > cap ? cap / totK : 1;
+        tiposAtivos.forEach(t => {
+          const k = Ks[t], K = k.K * esc;
+          const lam = k.Wt > 0 ? K / k.Wt : 0;
+          lamJ += lam * k.T.juv; lamA += lam;
+          const fracJ = k.Wt > 0 ? k.T.juv * SJ / k.Wt : 0;
+          predEaten[t] = K * (fracJ * 0.4 + (1 - fracJ));   // coelhos-equivalentes adultos
+        });
+      }
+      const NH = CAUSAS.length;
+      const hz = new Float64Array(NH);
       let w = 0;
       for (let i = 0; i < N0; i++) {
         const age = pop.idade[i];
@@ -663,11 +740,12 @@
         hz[5] = 0; hz[6] = 0;
         hz[7] = (cm.T > 30 ? 0.05 * (cm.T - 30) / 5 * (1 - abrigo) : 0) + (cm.T < 4 && juv ? 0.03 : 0); // clima
         hz[8] = (juv ? 0.09 : m0) * P.mort_mult;                                                   // basal
+        hz[9] = (lamA > 0) ? 1 - Math.exp(-(juv ? lamJ : lamA) * (1 + 0.8 * Math.max(0, 0.8 - c))) : 0; // predação
         let sobrev = 1, somaH = 0;
-        for (let k = 0; k < 9; k++) { sobrev *= 1 - hz[k]; somaH += hz[k]; }
+        for (let k = 0; k < NH; k++) { sobrev *= 1 - hz[k]; somaH += hz[k]; }
         if (rng() < 1 - sobrev) {
           let r = rng() * somaH, k = 0;
-          while (k < 8 && r > hz[k]) { r -= hz[k]; k++; }
+          while (k < NH - 1 && r > hz[k]) { r -= hz[k]; k++; }
           acc.mc[CAUSAS[k]]++; acc.mortes++;
           const id = pop.id[i]; if (id < MAXG && genealogia[id]) genealogia[id].morte = m;
           continue;
@@ -676,6 +754,40 @@
         w++;
       }
       pop.n = w;
+
+      /* 5c. dinâmica dos predadores (alimentação, mortes, nascimentos, migração) */
+      Object.keys(E.pred).forEach(t => {
+        const T = PRED_TIPOS[t], st = E.pred[t];
+        if (st.n <= 0 && !T.migra) return;
+        if (T.migra) {
+          if (!st.chegou) return;
+          const Dv = (N0 / A) * (1 - T.prot * 0.6 * cov);
+          const alvo = T.max * Dv / (Dv + T.h) * [0.7, 0.5, 1.0, 1.2][s];
+          const delta = (alvo - st.n) * 0.3 + (rng() - 0.5);
+          st.n = Math.max(0, Math.round(st.n + delta));
+          const comido = predEaten[t] || 0;
+          st.I = st.n > 0 ? Math.min(1.3, (comido + Math.min(0.95, T.alt * P.presas_alt) * T.need * st.n) / (T.need * st.n)) : 0;
+          return;
+        }
+        const Pn = st.n;
+        const aT = Math.min(0.95, T.alt * P.presas_alt);
+        const altPer = Pn > 0 ? Math.min(aT * T.need, aT * T.need * T.altCap * P.presas_alt / Pn) : 0;
+        const comidoPer = Pn > 0 ? (predEaten[t] || 0) / Pn : 0;
+        st.I = Math.min(1.3, (comidoPer + altPer) / T.need);
+        const mBase = 1 - Math.pow(1 - T.mort, 1 / 12);
+        const mFome = st.I < 0.7 ? T.fome * (0.7 - st.I) / 0.7 : 0;
+        const pm = Math.min(1, mBase + mFome);
+        let mortos = 0;
+        for (let k = 0; k < Pn; k++) if (rng() < pm) mortos++;
+        let nascidos = 0;
+        if (T.repro.indexOf(mo) >= 0 && Pn - mortos >= 2) {
+          const ok = clamp((st.I - 0.3) / 0.4, 0, 1);
+          for (let k = 0; k < Pn - mortos; k++) if (rng() < 0.5 && rng() < T.pRepro * ok) nascidos += poisson(rng, T.ninhada * T.sobrevFilhote);
+        }
+        st.n = Pn - mortos + nascidos;
+        acc.predNasc += nascidos; acc.predMortes += mortos;
+        if (st.n === 0 && Pn > 0 && !st.extinto) { st.extinto = true; acc.eventos.push({ mes: mo % 3, tipo: 'extinto_' + t }); }
+      });
 
       /* 6. reprodução */
       let nasc = 0, mortN = 0;
@@ -845,6 +957,14 @@
     if (i > 0) add(i, 'endogamia', 'Primeiro sinal de endogamia', `Os filhotes nascidos tinham coeficiente de endogamia médio F = ${R[i].Fnasc.toFixed(2)} (equivalente a cruzamento entre irmãos).`, '🧬', 'alerta', ['consanguinidade']);
     i = find(r => r.surto);
     if (i > 0) add(i, 'surto', 'Primeiro surto de doença', 'Um surto de doença endêmica foi desencadeado pela alta densidade de coelhos.', '🦠', 'mau', ['densidade', 'doença']);
+    // predadores: chegada e extinção
+    R.forEach((r, k) => (r.eventosClima || []).forEach(e => {
+      const [acao, tipo] = e.tipo.split('_');
+      const T = PRED_TIPOS[tipo];
+      if (!T || (acao !== 'chegada' && acao !== 'extinto')) return;
+      if (acao === 'chegada') add(k, 'pred_chegada', `Chegada: ${T.nome.toLowerCase()}`, `${T.nome} ${tipo === 'rapina' ? 'começaram a caçar' : 'foram introduzidos'} na ilha ${noEst(r)}.`, T.icone, 'alerta', ['predação']);
+      else add(k, 'pred_extinto', `${T.nome}: extinção`, `O último predador desse tipo morreu ${noEst(r)}, provavelmente por falta de presas.`, '🪦', 'info', ['predação', 'fome dos predadores']);
+    }));
     // recuperação ambiental
     let teveBaixa = false;
     for (let k = 1; k < R.length; k++) { if (R[k].R < 0.6) teveBaixa = true; else if (teveBaixa && R[k].R > 0.85) { add(k, 'recuperacao', 'Recuperação da vegetação', `O vigor da grama voltou a ${Math.round(R[k].R * 100)}% após um período de degradação.`, '🌱', 'bom', ['regeneração']); break; } }
@@ -905,7 +1025,7 @@
     out.push({ q: 'Os arbustos conseguiram resistir ao consumo ou começaram a desaparecer?', a: `Mínimo de ${pct(minHs / R[0].Hs)} da biomassa lenhosa inicial; ao final, ${pct(S.final.Hs / R[0].Hs)}. ` + (S.final.Hs < 0.3 * R[0].Hs ? 'Os arbustos foram em grande parte destruídos.' : S.final.Hs < 0.7 * R[0].Hs ? 'Houve perda importante, mas parcial.' : 'Os arbustos resistiram.') });
     // 8
     const eA = evt('arvore_morte');
-    out.push({ q: 'A única árvore sobreviveu aos 40 anos?', a: eA ? `Não. Ela morreu ${noEst(R[eA.i])}, depois que a casca foi roída durante crises alimentares.` : `Sim. Saúde final ${pct(S.final.arvSaude)}, integridade da casca ${pct(R[R.length - 1].arvCasca)}.` });
+    out.push({ q: `A única árvore sobreviveu aos ${P.anos} anos?`, a: eA ? `Não. Ela morreu ${noEst(R[eA.i])}, depois que a casca foi roída durante crises alimentares.` : `Sim. Saúde final ${pct(S.final.arvSaude)}, integridade da casca ${pct(R[R.length - 1].arvCasca)}.` });
     // 9
     const eR = evt('recuperacao');
     out.push({ q: 'A ilha conseguiu recuperar a vegetação depois de uma superpopulação?', a: eR ? `Sim, parcialmente: ${eR.texto} (${noEst(R[eR.i])}).` : (Math.min(...R.map(r => r.R)) >= 0.6 ? 'A vegetação não chegou a degradar a ponto de precisar de recuperação.' : 'Não: após a degradação, o vigor da grama não voltou acima de 85%.') });
@@ -930,13 +1050,26 @@
     // 15
     out.push({ q: 'Existe risco realista de extinção local?', a: S.extinta ? `Nesta execução, sim: a população foi extinta ${mesTexto(S.mesExtincao)}. Veja as repetições de Monte Carlo para a probabilidade.` : `Nesta execução a população sobreviveu (mínimo após o primeiro ano: ${fmt(Math.min(...R.slice(5).map(r => r.N)))}). A probabilidade deve ser lida nas repetições de Monte Carlo.` });
     // 16
-    out.push({ q: 'Qual foi o estado geral da ilha ao final dos 40 anos?', a: `Índice de saúde do ecossistema ${Math.round(S.final.saude)}/100. Grama ${fmt(Math.round(S.final.Gg + S.final.Gd))} kg/ha (vigor ${pct(S.final.R)}), arbustos ${pct(S.final.Hs / S.final.Hs0)} do inicial, árvore ${S.final.arvViva ? 'viva' : 'morta'}, solo com ${fmt(S.final.erosao)} t/ha de erosão acumulada e ${S.final.prof.toFixed(1)} cm de profundidade; ${fmt(S.Nfinal)} coelhos.` });
+    if (P.predadores.length) {
+      const mp = S.mcTot.predacao || 0;
+      const tipos = [...new Set(P.predadores.map(x => x.tipo))];
+      const fim = R[R.length - 1];
+      const estado = tipos.map(t => `${PRED_TIPOS[t].nome}: ${fim.pred[t] || 0} no final (máximo ${Math.max(...R.map(r => r.pred[t] || 0))})`).join('; ');
+      const ini = Math.min(...P.predadores.map(x => x.ano));
+      const depois = R.filter(r => !r.inicial && r.ano >= ini + 2);
+      const mediaN = depois.length ? Math.round(depois.reduce((a, r) => a + r.N, 0) / depois.length) : 0;
+      out.push({ q: 'Os predadores controlaram a população de coelhos?', a: `${fmt(mp)} coelhos foram mortos por predadores (${pct(mp / Math.max(1, S.mortes))} de todas as mortes). ${estado}. Depois da chegada dos predadores, a população média foi de ${fmt(mediaN)} coelhos. Compare com o cenário sem predadores para ver o efeito.` });
+    }
+    out.push({ q: `Qual foi o estado geral da ilha ao final dos ${P.anos} anos?`, a: `Índice de saúde do ecossistema ${Math.round(S.final.saude)}/100. Grama ${fmt(Math.round(S.final.Gg + S.final.Gd))} kg/ha (vigor ${pct(S.final.R)}), arbustos ${pct(S.final.Hs / S.final.Hs0)} do inicial, árvore ${S.final.arvViva ? 'viva' : 'morta'}, solo com ${fmt(S.final.erosao)} t/ha de erosão acumulada e ${S.final.prof.toFixed(1)} cm de profundidade; ${fmt(S.Nfinal)} coelhos.` });
     return out;
   }
 
   /* ---------------- Monte Carlo ---------------- */
   function linhaMC(res) {
-    return { semente: res.parametros.semente, extinta: res.resumo.extinta, mesExt: res.mesExtincao, Nmax: res.resumo.Nmax, Nfinal: res.resumo.Nfinal, colapsos: res.resumo.colapsos, crises: res.resumo.crises, arvMorreu: !res.resumo.final.arvViva, Rfinal: res.resumo.final.R, HsFinal: r3(res.resumo.final.Hs / res.resumo.final.Hs0), Ffinal: res.resumo.final.F, saude: res.resumo.final.saude };
+    const fimR = res.registros[res.registros.length - 1];
+    return { predFinal: fimR.predTotal, predMax: Math.max(...res.registros.map(r => r.predTotal)), predSobrevive: res.parametros.predadores.length ? fimR.predTotal > 0 : null,
+      Nmedio: Math.round(res.registros.reduce((a, r) => a + r.N, 0) / res.registros.length),
+      semente: res.parametros.semente, extinta: res.resumo.extinta, mesExt: res.mesExtincao, Nmax: res.resumo.Nmax, Nfinal: res.resumo.Nfinal, colapsos: res.resumo.colapsos, crises: res.resumo.crises, arvMorreu: !res.resumo.final.arvViva, Rfinal: res.resumo.final.R, HsFinal: r3(res.resumo.final.Hs / res.resumo.final.Hs0), Ffinal: res.resumo.final.F, saude: res.resumo.final.saude };
   }
   function monteCarlo(params, reps, sementeBase, onProgress) {
     const series = [], runs = [];
@@ -963,6 +1096,9 @@
       colapsosMed: r2(media('colapsos')), crisesMed: r2(media('crises')), RfinalMed: r3(media('Rfinal')), HsFinalMed: r3(media('HsFinal')),
       FfinalMed: r3(runs.filter(r => r.Ffinal !== null).reduce((a, r) => a + r.Ffinal, 0) / Math.max(1, runs.filter(r => r.Ffinal !== null).length)),
       saudeMed: r1(media('saude')),
+      NmedioMed: Math.round(q(runs.map(r => r.Nmedio), 0.5)),
+      predMaxMed: Math.round(q(runs.map(r => r.predMax), 0.5)),
+      pPredSobrevive: runs[0].predSobrevive === null ? null : r3(runs.filter(r => r.predSobrevive).length / n),
       histFinal: histograma(runs.map(r => r.Nfinal)),
       runs
     };
@@ -979,6 +1115,7 @@
     return {
       N: R.map(r => r.N), grama: R.map(r => Math.round(r.Gg + r.Gd)), R: R.map(r => r.R), Hs: R.map(r => Math.round(r.Hs)),
       arvore: R.map(r => r.arvSaude), solo: R.map(r => r.soloSaude), F: R.map(r => r.F), K: R.map(r => r.K), saude: R.map(r => r.saude),
+      pred: R.map(r => r.predTotal), predPor: Object.fromEntries(Object.keys(R[0].pred).map(t => [t, R.map(r => r.pred[t])])),
       resumo: res.resumo, eventos: res.eventos.map(e => ({ i: e.i, tipo: e.tipo, titulo: e.titulo }))
     };
   }
@@ -988,13 +1125,13 @@
     const cab = ['indice', 'ano', 'estacao', 'populacao', 'nascimentos', 'mortes', 'taxa_sobrevivencia', 'femeas_reprodutivas', 'filhotes_imaturos', 'adultos', 'machos', 'femeas', 'idade_media_meses',
       ...CAUSAS.map(c => 'mortes_' + c), 'F_medio', 'F_nascidos', 'diversidade_He_rel', 'alelos_por_locus', 'Ne_demografico', 'geracao_max',
       'grama_verde_kg_ha', 'grama_seca_kg_ha', 'vigor_raizes', 'banco_sementes', 'arbusto_brotos_kg_ha', 'arbusto_lenho_kg_ha', 'arvore_saude', 'arvore_casca', 'arvore_viva',
-      'cobertura', 'materia_organica', 'erosao_acum_t_ha', 'profundidade_solo_cm', 'umidade_solo', 'chuva_mm', 'temperatura_C', 'indice_alimentar', 'K_estacao', 'K_sustentavel_anual', 'saude_ecossistema'];
+      'cobertura', 'materia_organica', 'erosao_acum_t_ha', 'profundidade_solo_cm', 'umidade_solo', 'chuva_mm', 'temperatura_C', 'indice_alimentar', 'K_estacao', 'K_sustentavel_anual', 'saude_ecossistema', 'predadores_total'];
     const linhas = [cab.join(';')];
     res.registros.forEach(r => {
       linhas.push([r.i, r.ano, r.inicial ? 'Início' : ESTACOES[r.est], r.N, r.nasc, r.mortes, r.sobrev, r.femRep, r.filhotes, r.adultos, r.machos, r.femeas, r.idadeMedia,
         ...CAUSAS.map(c => r.mc[c]), r.F, r.Fnasc, r.He, r.alelos, r.Ne, r.gerMax,
         r.Gg, r.Gd, r.R, r.S, r.Hb, r.Hs, r.arvSaude, r.arvCasca, r.arvViva ? 1 : 0,
-        r.cobertura, r.MO, r.erosaoAcum, r.prof, r.umidade, r.chuva, r.T, r.indAlim, r.K, r.Ksust, r.saude
+        r.cobertura, r.MO, r.erosaoAcum, r.prof, r.umidade, r.chuva, r.T, r.indAlim, r.K, r.Ksust, r.saude, r.predTotal
       ].map(v => v === null || v === undefined ? '' : String(v).replace('.', ',')).join(';'));
     });
     return linhas.join('\n');
@@ -1007,7 +1144,7 @@
   }
 
   return {
-    VERSAO, ESTACOES, PADRAO, PARAM_META, CENARIOS, FUNDADORES_ALT, CAUSAS,
+    VERSAO, ESTACOES, PADRAO, PARAM_META, CENARIOS, CENARIOS_PRED, FUNDADORES_ALT, CAUSAS, PRED_TIPOS,
     simular, monteCarlo, resumirMC, linhaMC, compactar, analisar, csvSazonal, csvAnual,
     _interno: { gerarClima, calibrar, mulberry32, estadoInicial, passoVegetacao }
   };

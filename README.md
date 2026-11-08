@@ -1,15 +1,16 @@
-# Ilha 40 · O Experimento dos Dois Coelhos
+# Ilha · O Experimento dos Dois Coelhos
 
-Simulação ecológica de 40 anos de uma ilha isolada que recebe **um único casal de coelhos**.
-Modelo baseado em indivíduos (IBM), com passo mensal (480 meses), acoplado a modelos de
-grama, arbustos, uma árvore, solo, água e clima, e um site interativo que mostra tudo.
+Simulação ecológica de **40 ou 100 anos** de uma ilha isolada que recebe **um único casal de coelhos**,
+com a opção de introduzir **predadores** (gato feral, raposa-vermelha, arminho, aves de rapina).
+Modelo baseado em indivíduos (IBM), com passo mensal, acoplado a modelos de grama, arbustos,
+uma árvore, solo, água e clima, e um site interativo que mostra tudo.
 
 ## Como usar
 
 | Arquivo | O que faz |
 |---|---|
 | `INICIAR.bat` | Abre o site (se os dados não existirem, roda a simulação antes). |
-| `SIMULAR.bat` | Roda a simulação original, 100 repetições de Monte Carlo e 12 cenários (~1 min) e abre o site. |
+| `SIMULAR.bat` | Roda a simulação original de 40 e de 100 anos, Monte Carlo e 18 cenários (alguns minutos) e abre o site. |
 | `ANALISAR.bat` | Análise estatística complementar em Python → `dados/analise.txt`. |
 | `SERVIDOR.bat` | (Opcional) serve a pasta em http://localhost:8040. |
 
@@ -20,8 +21,9 @@ que funciona sem servidor (o `fetch()` de JSON é bloqueado em `file://`, causa 
 Pela linha de comando:
 
 ```bash
-node simular.js            # completo (100 + 40 repetições por cenário)
-node simular.js --rapido   # rápido (20 + 10)
+node simular.js            # completo: 40 anos (100 + 30 rep./cenário) e 100 anos (50 + 16)
+node simular.js --rapido   # rápido, para testes
+node simular.js --so40     # só 40 anos
 python analyze_results.py
 ```
 
@@ -36,7 +38,8 @@ js/app.js             interface: painel, ilha, gráficos, laboratório, relatór
 simular.js            executor: original + Monte Carlo + cenários → dados/
 analyze_results.py    análise estatística complementar (Python, só biblioteca padrão)
 dados/
-  resultados.js/.json   todos os resultados (lidos pelo site)
+  resultados.js/.json       40 anos (lidos pelo site)
+  resultados100.js/.json    100 anos (carregados quando o visitante escolhe 100 anos)
   tabela_sazonal.csv    161 registros (início + 160 estações)
   tabela_anual.csv      40 anos
   cenarios.csv          comparação dos cenários
@@ -51,6 +54,13 @@ parâmetro realmente muda a matemática. Mesma semente + mesmos parâmetros = re
 (o `simular.js` confere isso, e também o balanço N(t) = N(t−1) + nascimentos − mortes).
 
 ## O site
+
+Organizado em 5 abas para não sobrecarregar quem não é da área: **Visão geral** (a história em
+capítulos, a ilha agora em cartões de linguagem simples, o gráfico principal e as observações),
+**Natureza**, **Coelhos**, **Experimentos** (predadores, cenários e Laboratório) e **Relatório**
+(conclusão, perguntas, linha do tempo, glossário e método). Cada seção começa com uma frase
+"Em poucas palavras"; termos técnicos têm ajuda "?"; gráficos detalhados ficam em "Ver mais".
+
 
 Painel com 12 indicadores e índice de saúde (com fórmula explícita) · ilustração da ilha que
 muda com o estado (grama verde/seca, solo exposto, erosão, arbustos mortos, casca roída,
@@ -76,6 +86,16 @@ Laboratório · relatório com conclusão automática, as 16 perguntas, CSV/JSON
 
 Os números dependem de hipóteses (veja a seção **Método** do site): eles mostram mecanismos e
 ordens de grandeza, não previsões de uma ilha real.
+
+## Predadores
+
+Cada predador tem necessidade alimentar, preferência por filhotes, proteção que a vegetação
+oferece aos coelhos, presas alternativas e reprodução próprias. A caça segue uma resposta
+funcional tipo III (o predador troca de presa quando os coelhos ficam raros). Resultado
+principal: **sem predadores, os coelhos destroem o pasto e somem em ~70% das repetições
+(40 anos) e ~94% (100 anos); com aves de rapina, ~7% e ~12%**: o predador freia a explosão
+que levaria ao colapso. Predadores que dependem só dos coelhos (raposas) costumam morrer de
+fome depois de derrubar a população.
 
 ## Hospedar de graça
 

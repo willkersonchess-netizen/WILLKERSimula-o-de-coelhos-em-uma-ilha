@@ -7,7 +7,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo Rodando a simulacao original, o Monte Carlo e os cenarios (cerca de 1 minuto)...
+echo Rodando a simulacao original, o Monte Carlo e os cenarios para 40 e 100 anos (leva alguns minutos)...
 echo.
 node simular.js
 if errorlevel 1 (

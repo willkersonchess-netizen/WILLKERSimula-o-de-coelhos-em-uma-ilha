@@ -1,0 +1,19 @@
+﻿cenario;grupo;prob_extincao;N_medio_mediana;N_max_mediana;N_final_mediana;N_final_p5;N_final_p95;colapsos_medios;prob_predador_sobrevive;vigor_grama_final;arbustos_final_rel;F_final;saude_final
+Chuva média (original);ambiente;0,938;133;6404;0;0;0;4,13;;0,969;0,507;0,875;75,9
+A · Primaveras secas;ambiente;1;96;5242;0;0;0;2,56;;1;0,566;0;79,1
+B · Primaveras chuvosas;ambiente;0,938;159;7479;0;0;11;6,44;;0,959;0,47;0,876;71,3
+C · Poucos arbustos;ambiente;1;117;5241;0;0;0;3,94;;1;1,278;0;77,8
+D · Muitos arbustos;ambiente;1;154;7652;0;0;0;4,69;;1;0,291;0;79,7
+E · Recuperação lenta;ambiente;1;72;5644;0;0;0;1,75;;1;0,229;0;75,4
+F · Recuperação rápida;ambiente;0,813;249;7616;0;0;448;9,25;;0,991;0,624;0,679;66,5
+G · Depressão endogâmica forte;ambiente;1;114;3366;0;0;0;1,31;;1;0,678;0;85,5
+H · Depressão endogâmica fraca;ambiente;1;140;10625;0;0;0;5,13;;1;0,55;0;76,2
+Gatos ferais (4 no ano 3);predadores;1;137;4881;0;0;0;3,31;0;0,997;0,567;0;79
+Raposas (casal no ano 3);predadores;1;119;6454;0;0;0;3,38;0;1;0,603;0;81,2
+Arminhos (4 no ano 3);predadores;1;141;5831;0;0;0;4,75;0;1;0,52;0;77,8
+Aves de rapina (desde o ano 1);predadores;0,125;207;5696;120;0;138;2,19;0,875;1;0,735;0,605;86,6
+Gatos junto com os coelhos (ano 1);predadores;1;139;5150;0;0;0;3;0;0,995;0,628;0;80,1
+Gatos + aves de rapina;predadores;0,313;202;4311;70;0;93;2;0,688;1;0,664;0,697;84,5
+Dois machos;fundadores;1;0;2;0;0;0;0;;1;1,414;0;96,2
+Casal de filhotes (1 mês);fundadores;1;46;2575;0;0;0;1,94;;0,999;0,954;0;87,6
+Fêmea infértil;fundadores;1;0;2;0;0;0;0;;1;1,414;0;96,2

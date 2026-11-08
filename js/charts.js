@@ -66,7 +66,9 @@
     }
     set(o) { Object.assign(this.o, o); if (o.series) this._legenda(); this.desenhar(); return this; }
     n() { let n = 0; this.o.series.forEach(s => { const d = s.dados || s.hi || []; if (d.length > n) n = d.length; }); return n; }
-    setCursor(i) { this.cursorI = i; this.desenhar(); }
+    // gráficos invisíveis (outra aba, "Ver mais" fechado) só guardam o cursor;
+    // o ResizeObserver redesenha quando eles aparecem
+    setCursor(i) { this.cursorI = i; if (this.el.offsetParent !== null) this.desenhar(); }
     setRange(a, b) {
       const n = this.n(); if (!n) return;
       if (a === null || a === undefined) { this.i0 = 0; this.i1 = null; }

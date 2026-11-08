@@ -1,0 +1,63 @@
+======================================================================
+ ILHA - ANALISE ESTATISTICA COMPLEMENTAR
+======================================================================
+ Motor v2.1.0 | semente 42 | gerado em 2026-11-08T08:13:17.526Z
+
+1. RESUMO DA EXECUCAO ORIGINAL
+   Populacao: inicial 2 | maxima 6704 | final 0
+   Nascimentos 37509 | Mortes 37511 | Colapsos 6 | Crises alimentares 5
+   Extinta: sim
+
+2. CICLOS POPULACIONAIS (autocorrelacao de log(N+1), registros sazonais)
+   Periodicidade dominante: ~52 estacoes (~13.0 anos), autocorrelacao 0.72.
+   Interpretacao: tempo medio entre explosoes, ditado pela recuperacao da vegetacao.
+   Autocorrelacao com 1 ano de defasagem: 0.96
+
+3. CHUVA DA PRIMAVERA x CRESCIMENTO DA POPULACAO NO ANO
+   Anos com >= 10 coelhos no inicio: 34
+   Correlacao (multiplicador da chuva x log da taxa de crescimento): 0.28
+   Uma correlacao fraca indica que a chuva sozinha nao explica o crescimento:
+   a degradacao acumulada da vegetacao e a densidade pesam mais.
+
+4. DEFASAGEM ENTRE PICO POPULACIONAL E DEGRADACAO
+   Pico populacional: registro 18 (ano 5, Verao)
+   Raizes da grama < 70%: registro 19 -> +1 estacoes em relacao ao pico
+   Arbustos < 50%: registro 20 -> +2 estacoes em relacao ao pico
+
+5. MORTES POR ESTACAO DO ANO (soma dos 40 anos)
+   Primavera  mortes    14748 ( 39.3%)   nascimentos    21996
+   Verao      mortes    12424 ( 33.1%)   nascimentos    13203
+   Outono     mortes     5087 ( 13.6%)   nascimentos     1443
+   Inverno    mortes     5252 ( 14.0%)   nascimentos      867
+   Causas (total): endogamia 12921, basal 7555, neonatal 7147, fome 5758, doenca 2433, desidratacao 1562, idade 126, clima 9, surto 0, predacao 0
+
+6. MONTE CARLO DO CENARIO ORIGINAL (50 repeticoes)
+   Probabilidade de extincao em 40 anos: 98%
+   Probabilidade de a arvore morrer:      0%
+   Populacao maxima (mediana): 6704
+   Populacao final: mediana 0 | P5 0 | P95 0
+   Ano da extincao (quando ocorre): mediana 31.5 | min 1.0 | max 74.7
+   Intervalo aproximado de 95% para P(extincao): 94% a 100%
+
+7. CENARIOS (16 repeticoes cada, mesmas sementes)
+   Cenario                               Grupo         P(ext)  N medio  Colapsos   Grama Pred.vivo
+   Chuva média (original)                ambiente         94%      133      4.13     97%         -
+   A · Primaveras secas                  ambiente        100%       96      2.56    100%         -
+   B · Primaveras chuvosas               ambiente         94%      159      6.44     96%         -
+   C · Poucos arbustos                   ambiente        100%      117      3.94    100%         -
+   D · Muitos arbustos                   ambiente        100%      154      4.69    100%         -
+   E · Recuperação lenta                 ambiente        100%       72      1.75    100%         -
+   F · Recuperação rápida                ambiente         81%      249      9.25     99%         -
+   G · Depressão endogâmica forte        ambiente        100%      114      1.31    100%         -
+   H · Depressão endogâmica fraca        ambiente        100%      140      5.13    100%         -
+   Gatos ferais (4 no ano 3)             predadores      100%      137      3.31    100%        0%
+   Raposas (casal no ano 3)              predadores      100%      119      3.38    100%        0%
+   Arminhos (4 no ano 3)                 predadores      100%      141      4.75    100%        0%
+   Aves de rapina (desde o ano 1)        predadores       12%      207      2.19    100%       88%
+   Gatos junto com os coelhos (ano 1)    predadores      100%      139      3.00    100%        0%
+   Gatos + aves de rapina                predadores       31%      202      2.00    100%       69%
+   Dois machos                           fundadores      100%        0      0.00    100%         -
+   Casal de filhotes (1 mês)             fundadores      100%       46      1.94    100%         -
+   Fêmea infértil                        fundadores      100%        0      0.00    100%         -
+
+======================================================================
