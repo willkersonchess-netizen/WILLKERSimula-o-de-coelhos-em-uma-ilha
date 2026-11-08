@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ilha 40 · O Experimento dos Dois Coelhos</title>
+  <meta name="description" content="Simulação ecológica baseada em indivíduos: 40 anos de uma ilha isolada a partir de um único casal de coelhos.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%234fa3c4'/%3E%3Cellipse cx='16' cy='18' rx='11' ry='8' fill='%23e7cf96'/%3E%3Cellipse cx='16' cy='17' rx='8.5' ry='6' fill='%239bd17a'/%3E%3C/svg%3E">
+  <!-- Fontes (opcionais: sem internet, o site usa fontes do sistema) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="sr-only" href="#painel">Pular para o painel</a>
+
+<header class="topo">
+  <div class="wrap">
+    <a class="marca" href="#topo" aria-label="Ilha 40 — início">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#123c4c"/><ellipse cx="16" cy="18.5" rx="11" ry="7.5" fill="#e7cf96"/><ellipse cx="16" cy="17.5" rx="8.6" ry="5.8" fill="#5fa65a"/><circle cx="17" cy="13" r="3.2" fill="#2f6a35"/><rect x="16.4" y="14" width="1.2" height="4" fill="#6b4a2c"/></svg>
+      <div><b>Ilha 40</b><span>experimento dos dois coelhos</span></div>
+    </a>
+    <nav class="nav" aria-label="Seções">
+      <a href="#painel">Painel</a><a href="#populacao">População</a><a href="#descobertas">Descobertas</a>
+      <a href="#ecossistema">Ecossistema</a><a href="#dinamica">Dinâmica</a><a href="#genetica">Genética</a>
+      <a href="#clima">Clima</a><a href="#capacidade">Capacidade</a><a href="#linha-do-tempo">Linha do tempo</a>
+      <a href="#cenarios">Cenários</a><a href="#laboratorio">Laboratório</a><a href="#relatorio">Relatório</a><a href="#metodo">Método</a>
+    </nav>
+    <span class="fonte-badge" id="fonteBadge">Simulação original</span>
+  </div>
+</header>
+<div class="banner-lab" role="status">
+  <div class="wrap">
+    <span>⚗️ Você está vendo um <b>experimento modificado no Laboratório</b>. Os parâmetros diferem da simulação original.</span>
+    <button class="btn peq" id="voltarOriginal">Voltar à simulação original</button>
+  </div>
+</div>
+
+<main id="topo">
+  <!-- ================= HERÓI ================= -->
+  <section class="heroi">
+    <div class="wrap">
+      <div>
+        <span class="kicker">Modelo baseado em indivíduos · 480 meses · 160 estações</span>
+        <h1>Dois coelhos.<br>Uma ilha.<br><em>Quarenta anos.</em></h1>
+        <p class="lead" id="heroiLead">Uma ilha isolada que alimentaria cerca de 6.000 coelhos numa primavera média recebe um único casal. Cada coelho nasce, come, envelhece e morre dentro do modelo; a grama, os arbustos, a única árvore e o solo respondem. O que acontece com a ilha inteira?</p>
+        <div class="botoes">
+          <a class="btn pri" href="#painel">▶ Começar a viagem</a>
+          <button class="btn" id="heroiPlay">Reproduzir os 40 anos</button>
+          <a class="btn" href="#metodo">Como o modelo funciona</a>
+        </div>
+      </div>
+      <div class="heroi-stats" id="heroiStats" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ================= PAINEL ================= -->
+  <section class="sec" id="painel">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">01 · Estado da ilha</span><h2>Painel de monitoramento</h2>
+          <p>Tudo nesta página segue o momento escolhido na barra do tempo, embaixo. Os números vêm diretamente do motor da simulação.</p></div>
+      </div>
+      <div class="painel">
+        <div>
+          <div class="ilha-box" id="ilhaBox">
+            <div class="ilha-ctrl">
+              <button class="btn peq" id="vistaGeral" aria-pressed="true">Visão geral</button>
+              <button class="btn peq" id="vistaDetalhe" aria-pressed="false">Detalhe do solo</button>
+            </div>
+            <div class="ilha-info" id="ilhaInfo"></div>
+            <div id="ilhaSvg"></div>
+          </div>
+          <div class="legenda" id="ilhaLegenda"></div>
+        </div>
+        <div>
+          <div class="momento"><span class="quando" id="momentoQuando">—</span><span class="estacao-chip" id="momentoChip"></span></div>
+          <div class="kpis" id="kpis"></div>
+          <div class="saude">
+            <svg viewBox="0 0 120 120" id="saudeGauge" role="img" aria-label="Índice de saúde do ecossistema"></svg>
+            <div>
+              <div style="font-weight:600;margin-bottom:4px">Saúde do ecossistema</div>
+              <div class="saude-comp" id="saudeComp"></div>
+              <details class="formula"><summary>Como é calculado?</summary>
+                <p><code>Saúde = 100 × (0,30·Grama + 0,20·Arbustos + 0,15·Árvore + 0,25·Solo + 0,10·Equilíbrio)</code></p>
+                <p>Grama = 0,6·vigor das raízes + 0,4·biomassa relativa à inicial · Arbustos = biomassa lenhosa relativa × (0,6 + 0,4·folhagem) · Árvore = 0,45·vigor + 0,30·casca + 0,25·copa · Solo = 0,4·matéria orgânica + 0,25·(1 − crosta) + 0,35·profundidade relativa · Equilíbrio = 1 − excesso da população sobre a capacidade sustentável anual. Os pesos são uma escolha do autor (hipótese), não um índice publicado.</p>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= POPULAÇÃO ================= -->
+  <section class="sec" id="populacao">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">02 · O gráfico principal</span><h2>População de coelhos em 40 anos</h2>
+          <p>Uma única linha, uma única população: o início da primavera do ano 1 e o fim de cada uma das 160 estações. Arraste sobre o gráfico para ampliar um intervalo e dê duplo clique para voltar. Clique em um ponto para viajar até aquele momento.</p></div>
+        <div class="ctrl-linha">
+          <button class="btn peq" id="popLog" aria-pressed="false">Escala log</button>
+          <button class="btn peq" id="popK" aria-pressed="true">Capacidade da estação</button>
+          <select id="popFaixa" aria-label="Intervalo">
+            <option value="">40 anos</option><option value="0-40">Anos 1–10</option><option value="40-80">Anos 11–20</option><option value="80-120">Anos 21–30</option><option value="120-160">Anos 31–40</option>
+          </select>
+          <button class="btn peq" id="popReset">Mostrar tudo</button>
+        </div>
+      </div>
+      <div class="pop-layout">
+        <div class="cartao"><div id="gPop"></div></div>
+        <div class="cartao detalhe" id="popDetalhe" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DESCOBERTAS ================= -->
+  <section class="sec" id="descobertas">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">03 · Central de análise</span><h2>O que está acontecendo na ilha?</h2>
+          <p>Comentários gerados por regras aplicadas aos resultados do momento selecionado (comparados com a estação anterior e com o mesmo período do ano anterior). Cada um mostra as variáveis que contribuíram.</p></div>
+      </div>
+      <div class="insights" id="insights"></div>
+    </div>
+  </section>
+
+  <!-- ================= ECOSSISTEMA ================= -->
+  <section class="sec" id="ecossistema">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">04 · Monitoramento do ecossistema</span><h2>Grama, arbustos, árvore e solo</h2>
+          <p>Cada gráfico usa uma única unidade por eixo. Biomassa em kg de matéria seca por hectare (kg MS/ha); fluxos em kg MS/ha por estação; índices de 0 a 1.</p></div>
+      </div>
+      <div class="grid g2">
+        <div class="cartao"><h3>🌾 Grama: estoque</h3><p class="sub">Grama verde (nutritiva) e grama seca em pé (menor digestibilidade), kg MS/ha no fim de cada estação.</p><div id="gGrama"></div></div>
+        <div class="cartao"><h3>🌾 Grama: fluxos por estação</h3><p class="sub">Crescimento, consumo pelos coelhos e decomposição da grama seca (kg MS/ha por estação): o balanço de massa.</p><div id="gGramaFlux"></div></div>
+        <div class="cartao"><h3>🌱 Grama: capacidade de regeneração</h3><p class="sub">Vigor das raízes/coroas, banco de sementes e fração da vegetação considerada perdida permanentemente (índices 0–1).</p><div id="gGramaIdx"></div></div>
+        <div class="cartao"><h3>🌿 Arbustos</h3><p class="sub">Biomassa lenhosa (estrutura) e folhas/brotos acessíveis aos coelhos (kg MS/ha). A estrutura morre quando a casca é roída.</p><div id="gArb"></div></div>
+        <div class="cartao"><h3>🌿 Arbustos: fluxos por estação</h3><p class="sub">Consumo de brotos, crescimento lenhoso e mortalidade de estrutura (kg MS/ha por estação).</p><div id="gArbFlux"></div></div>
+        <div class="cartao"><h3>🌳 A única árvore</h3><p class="sub">Índices 0–1: saúde geral, vigor, integridade da casca na base do tronco e copa (folhas relativas ao máximo).</p><div id="gArv"></div></div>
+        <div class="cartao"><h3>🟫 Solo: índices</h3><p class="sub">Cobertura vegetal, matéria orgânica (relativa à ilha intacta), crosta superficial e umidade média (0–1).</p><div id="gSolo"></div></div>
+        <div class="cartao"><h3>🟫 Solo: erosão e profundidade</h3><p class="sub">Erosão acumulada (t/ha). Cada 13 t/ha removem cerca de 1 mm de solo (densidade de 1,3 g/cm³).</p><div id="gErosao"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DINÂMICA ================= -->
+  <section class="sec" id="dinamica">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">05 · Dinâmica populacional</span><h2>Nascimentos, mortes e estrutura etária</h2>
+          <p>Nascimentos contam filhotes nascidos vivos; as mortes incluem filhotes que morrem no ninho. Em toda estação vale N(t) = N(t−1) + nascimentos − mortes.</p></div>
+      </div>
+      <div class="grid g2">
+        <div class="cartao span2"><h3>Nascimentos e mortes por estação</h3><p class="sub">Coelhos por estação (mortes como valores negativos).</p><div id="gNascMort"></div></div>
+        <div class="cartao span2"><h3>Causas de morte por estação</h3><p class="sub">Riscos mensais competindo: cada morte é atribuída proporcionalmente aos riscos que o indivíduo enfrentava.</p><div id="gCausas"></div></div>
+        <div class="cartao"><h3>Pirâmide etária <span class="muted small" id="pirQuando"></span></h3><p class="sub">Machos à esquerda, fêmeas à direita, no momento selecionado.</p><div class="piramide" id="piramide"></div></div>
+        <div class="cartao"><h3>Estrutura da população</h3><p class="sub">Adultos, imaturos (&lt; 4 meses) e fêmeas reprodutivas (coelhos).</p><div id="gEstrutura"></div></div>
+        <div class="cartao"><h3>Sobrevivência dos filhotes</h3><p class="sub">Fração dos nascidos vivos que sobrevive ao período de ninho, e taxa de sobrevivência da população na estação.</p><div id="gSobrev"></div></div>
+        <div class="cartao"><h3>Idade média e gerações</h3><p class="sub">Idade média (meses) e geração mais avançada presente.</p><div id="gIdade"></div></div>
+        <div class="cartao"><h3>Razão sexual</h3><p class="sub">Fração de machos na população viva.</p><div id="gSexo"></div></div>
+        <div class="cartao"><h3>Mortalidade acumulada</h3><p class="sub">Total de mortes desde o início, por causa.</p><div id="gMortAcum"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= GENÉTICA ================= -->
+  <section class="sec" id="genetica">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">06 · Genética e consanguinidade</span><h2>Todos descendem de dois coelhos</h2>
+          <p>Cada coelho carrega 48 marcadores genéticos neutros, herdados de verdade (um alelo do pai e um da mãe, sorteados). Os fundadores começam com quatro alelos diferentes por locus, então um locus homozigoto significa que as duas cópias vieram do mesmo ancestral: o coeficiente de endogamia F é medido, não estimado por uma fórmula.</p></div>
+      </div>
+      <div class="grid g3" style="margin-bottom:16px" id="geneCards"></div>
+      <div class="grid g2">
+        <div class="cartao"><h3>🧬 Coeficiente de endogamia (F)</h3><p class="sub">F médio da população e F dos filhotes nascidos em cada estação. F = 0,25 equivale a filhos de irmãos.</p><div id="gF"></div></div>
+        <div class="cartao"><h3>🧬 Diversidade genética</h3><p class="sub">Heterozigosidade esperada relativa ao valor inicial (He/He₀) e fração dos 4 alelos fundadores que sobrevive por locus.</p><div id="gHe"></div></div>
+        <div class="cartao"><h3>Tamanho efetivo (Ne)</h3><p class="sub">Ne demográfico = 4·Nm·Nf/(Nm+Nf) com adultos reprodutivos, e sua média harmônica acumulada (gargalos pesam mais).</p><div id="gNe"></div></div>
+        <div class="cartao"><h3>Genealogia real dos fundadores</h3><p class="sub">Os primeiros descendentes gerados pelo modelo (filhotes que saíram do ninho). Passe o mouse ou toque para ver o parentesco.</p><div class="genealogia" id="genealogia"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CLIMA ================= -->
+  <section class="sec" id="clima">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">07 · Clima e estações</span><h2>Chuva, temperatura e umidade</h2>
+          <p>A chuva da primavera varia entre 70% e 130% da média por um processo autorregressivo, por isso secas e anos chuvosos podem se repetir em sequência. A sequência climática é gerada à parte da biologia: no Laboratório, mudar a biologia mantém o mesmo clima.</p></div>
+      </div>
+      <div class="estacoes4" id="estacoes4" style="margin-bottom:16px"></div>
+      <div class="grid g2">
+        <div class="cartao span2"><h3>🌧️ Chuva da primavera por ano</h3><p class="sub">Multiplicador da média de referência (1,0 = 210 mm). Barras ocre: primaveras secas (&lt; 0,9); azuis: chuvosas (&gt; 1,1).</p><div id="gChuvaPrim"></div></div>
+        <div class="cartao"><h3>Chuva total por ano</h3><p class="sub">mm/ano, com a média de referência (580 mm).</p><div id="gChuvaAno"></div></div>
+        <div class="cartao"><h3>Temperatura média</h3><p class="sub">°C por estação (ondas de calor e frio extremo aparecem como picos).</p><div id="gTemp"></div></div>
+        <div class="cartao span2"><h3>Umidade do solo e capacidade de retenção de água</h3><p class="sub">Umidade média relativa (0–1). A capacidade de retenção depende da matéria orgânica, da crosta e da profundidade do solo.</p><div id="gUmid"></div></div>
+      </div>
+      <div class="cartao" style="margin-top:16px" id="climaFatos"></div>
+    </div>
+  </section>
+
+  <!-- ================= CAPACIDADE ================= -->
+  <section class="sec" id="capacidade">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">08 · Capacidade de suporte dinâmica</span><h2>Quantos coelhos a ilha consegue alimentar?</h2>
+          <p><b>Capacidade da estação</b>: quantos coelhos adultos o alimento daquela estação (estoque acessível no início + produção durante a estação) sustentaria usando 45% dele, a parte que pode ser comida sem degradar a vegetação. <b>Capacidade sustentável anual</b>: a menor das quatro capacidades sazonais do ano, ou seja, o gargalo. A primeira primavera foi calibrada para 6.000.</p></div>
+      </div>
+      <div class="grid g2">
+        <div class="cartao span2"><h3>População × capacidade</h3><p class="sub">Área vermelha: a população excede a capacidade da estação (superpopulação).</p><div id="gCap"></div></div>
+        <div class="cartao"><h3>Capacidade da primavera por ano</h3><p class="sub">Comparada com a premissa de 6.000.</p><div id="gCapPrim"></div></div>
+        <div class="cartao"><h3>Índice alimentar</h3><p class="sub">Energia digestível obtida ÷ energia necessária, média da estação (100% = coelhos bem alimentados).</p><div id="gAlim"></div></div>
+        <div class="cartao span2"><h3>De que os coelhos se alimentaram</h3><p class="sub">Composição da dieta (fração da energia digestível) por estação. A mudança para grama seca, cascas e raízes é o sinal de fome.</p><div id="gDieta"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LINHA DO TEMPO ================= -->
+  <section class="sec" id="linha-do-tempo">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">09 · Acontecimentos</span><h2>Linha do tempo</h2>
+          <p>Eventos detectados automaticamente nos resultados do modelo. Clique em um evento para viajar até aquele momento.</p></div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </section>
+
+  <!-- ================= CENÁRIOS ================= -->
+  <section class="sec" id="cenarios">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">10 · Comparação de cenários</span><h2>E se a ilha fosse diferente?</h2>
+          <p id="cenIntro">Cada cenário tem a sua própria execução do modelo, com várias repetições de Monte Carlo (sementes aleatórias diferentes para clima e demografia). Todos os cenários usam as <b>mesmas sementes</b>, então as diferenças vêm dos parâmetros, não da sorte.</p></div>
+      </div>
+      <div class="grid g2">
+        <div class="cartao span2"><h3>Incerteza do cenário original</h3><p class="sub" id="mcSub">Faixas de percentis da população em todas as repetições, e a mediana. É uma análise complementar: o gráfico principal continua sendo uma única trajetória.</p><div id="gMC"></div></div>
+        <div class="cartao span2"><h3>Resultados por cenário</h3><p class="sub">Clique em uma linha para compará-la com o original.</p>
+          <div class="tabela-box"><table class="cen-tab" id="tabCen"></table></div></div>
+        <div class="cartao"><h3 id="cmpTitulo">Comparação</h3><p class="sub">População da execução representativa (semente 42) de cada cenário.</p><div id="gCmp"></div></div>
+        <div class="cartao"><h3>Vegetação no cenário escolhido</h3><p class="sub">Vigor das raízes da grama e arbustos relativos ao inicial (0–1).</p><div id="gCmpVeg"></div></div>
+        <div class="cartao"><h3>Distribuição da população final</h3><p class="sub">Histograma das repetições do cenário original.</p><div id="gHist"></div></div>
+        <div class="cartao"><h3>O que mais influencia a sobrevivência?</h3><div id="cenSens"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LABORATÓRIO ================= -->
+  <section class="sec" id="laboratorio">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">11 · Laboratório de experimentação</span><h2>Mude a ilha e rode o modelo de novo</h2>
+          <p>Os controles alteram os parâmetros do mesmo motor matemático, que roda no seu navegador. Uma execução leva menos de um segundo.</p></div>
+      </div>
+      <div class="aviso" style="margin-bottom:14px">⚠️ <span>Alterar parâmetros modifica as condições originais do experimento. Os resultados do Laboratório substituem temporariamente os da simulação original em toda a página; a original continua disponível pelo botão "Voltar à simulação original".</span></div>
+      <div class="cartao">
+        <div class="lab-grid" id="labGrid"></div>
+        <div class="lab-grid" style="margin-top:12px">
+          <div class="grupo-t">Experimento</div>
+          <label class="slider"><span class="sl-top"><span>Fundadores</span></span>
+            <select id="labFund"><option value="par_adulto">Casal adulto (original)</option><option value="dois_machos">Dois machos</option><option value="dois_filhotes">Casal de filhotes (1 mês)</option><option value="femea_infertil">Fêmea infértil</option></select></label>
+          <label class="slider"><span class="sl-top"><span>Semente aleatória</span></span><input type="number" id="labSemente" value="42" min="1" max="999999"></label>
+          <label class="slider"><span class="sl-top"><span>Repetições (Monte Carlo)</span></span>
+            <select id="labReps"><option value="1">1 (só a trajetória)</option><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
+          <label class="slider"><span class="sl-top"><span>Surtos de doença por densidade</span></span>
+            <select id="labSurtos"><option value="1">Ativados</option><option value="0">Desativados</option></select></label>
+        </div>
+        <div class="botoes">
+          <button class="btn pri" id="labRodar">▶ Executar simulação</button>
+          <button class="btn" id="labReset">Restaurar valores originais</button>
+          <span class="hint" id="labStatus"></span>
+        </div>
+        <div id="labResultado" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RELATÓRIO ================= -->
+  <section class="sec" id="relatorio">
+    <div class="wrap">
+      <div class="sec-cab">
+        <div><span class="kicker">12 · Relatório final</span><h2>O que aconteceu com a ilha</h2></div>
+        <div class="ctrl-linha nao-imprime">
+          <button class="btn peq" id="expCsv">⬇ CSV sazonal (161 registros)</button>
+          <button class="btn peq" id="expCsvAno">⬇ CSV anual</button>
+          <button class="btn peq" id="expJson">⬇ JSON completo</button>
+          <button class="btn peq" id="expPrint">🖨 Versão para imprimir</button>
+        </div>
+      </div>
+      <div class="grid g2">
+        <div class="cartao"><h3>Conclusão automática</h3><div class="conclusao" id="conclusao"></div></div>
+        <div class="cartao"><h3>Resumo dos 40 anos</h3><dl class="dl" id="resumoDl"></dl></div>
+        <div class="cartao span2"><h3>As 16 perguntas, respondidas com os resultados do modelo</h3><div class="qa" id="qa"></div></div>
+        <div class="cartao span2"><h3>Tabela populacional: 160 registros sazonais</h3><p class="sub">Clique em uma linha para ir até a estação.</p><div class="tabela-box"><table id="tabPop"></table></div></div>
+        <div class="cartao span2"><h3>Tabela ambiental e genética por ano</h3><div class="tabela-box"><table id="tabAno"></table></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MÉTODO ================= -->
+  <section class="sec metodo" id="metodo">
+    <div class="wrap">
+      <div class="sec-cab"><div><span class="kicker">13 · Metodologia</span><h2>Como o modelo funciona</h2>
+        <p>Etiquetas: <span class="tag lit">literatura</span> parâmetro baseado em estudos publicados · <span class="tag hip">hipótese</span> valor escolhido para a ilha fictícia · <span class="tag cal">calibrado</span> derivado da premissa de 6.000 coelhos.</p></div></div>
+      <div class="grid g2">
+        <div class="cartao">
+          <h3>1. Estrutura</h3>
+          <p>Um <b>modelo baseado em indivíduos</b> (IBM) com passo <b>mensal</b> (480 meses), acoplado a modelos de reservatórios para vegetação, solo e água. Cada coelho tem idade, sexo, condição corporal, pai, mãe, geração, fertilidade e 48 pares de alelos neutros. A cada mês, nesta ordem:</p>
+          <ol class="muted">
+            <li>clima do mês (chuva, intensidade, temperatura, eventos extremos);</li>
+            <li>balanço hídrico do solo e crescimento, senescência e decomposição da vegetação;</li>
+            <li>demanda alimentar e alimentação com balanço de massa;</li>
+            <li>danos do pastejo (raízes, sementes, cascas de arbustos e da árvore);</li>
+            <li>solo: erosão, matéria orgânica, crosta e profundidade;</li>
+            <li>condição corporal e mortalidade por riscos competitivos;</li>
+            <li>reprodução (concepção, reabsorção, ninhada, herança genética, sobrevivência no ninho).</li>
+          </ol>
+          <p>Os resultados são registrados no fim de cada estação (3 meses). O modelo é determinístico dada a semente: o clima usa um gerador aleatório próprio, separado do gerador da demografia.</p>
+          <h3>2. Alimentação e balanço de massa</h3>
+<div class="eq">Estoque(t+1) = Estoque(t) + crescimento − consumo − senescência/decomposição − perdas
+crescimento_grama = Gpot · perfil(mês) · f(T) · W · (0,6+0,4·MO) · R · (G+60)/(G+100) · (1 − G/Gmax)
+W = ETR / ETP  (balanço hídrico tipo Thornthwaite–Mather)
+ingestão da fonte k = min(0,9·disponível·dig_k ;  necessidade_restante · B/(B+h_k) ;  capacidade_MS · dig_k)</div>
+          <p>Ordem de preferência: grama verde → brotos de arbustos → folhas da árvore → grama seca → casca de arbustos → raízes. A resposta funcional tipo II (B/(B+h)) faz o pasto baixo render menos mesmo que exista; o limite de ingestão de matéria seca impede que grama seca, de baixa qualidade, sustente sozinha um coelho. Comer casca mata estrutura lenhosa (8 kg por kg roído, por anelamento); cavar raízes reduz o vigor da grama. Tudo o que é comido é removido do estoque, sem recontagem.</p>
+          <h3>3. Vegetação: cinco estados diferentes</h3>
+          <ul><li><b>Seca temporariamente</b>: grama verde que virou seca na senescência (ainda é alimento, pior);</li><li><b>Consumida</b>: biomassa removida no mês (rebrota se as raízes estão vivas);</li><li><b>Morta</b>: perda de vigor das raízes (R) após estresse de pastejo acumulado por vários meses;</li><li><b>Em regeneração</b>: aumento de R pela rebrota e pela germinação do banco de sementes;</li><li><b>Perdida permanentemente</b>: sem raízes e sem sementes, a área não volta sozinha.</li></ul>
+        </div>
+        <div class="cartao">
+          <h3>4. Reprodução e mortalidade</h3>
+<div class="eq">P(concepção/mês) = fert · fotoperíodo(mês) · nutrição · parceiros · idade · toca
+nutrição = f(fração de grama verde na dieta) · f(condição corporal)
+P(reabsorção) = 0,07 + 0,6·(1 − condição/0,95)^1,5
+ninhada ~ Poisson(5 · (0,7+0,3·cond) · e^(−B_fec·F_mãe))
+sobrevivência no ninho = 0,82 · cond^0,7 · hidratação · enchente · toca · frio · e^(−B_juv·F_filhote)
+P(morte/mês) = 1 − Π(1 − risco_k)   k ∈ {fome, desidratação, doença, surto, idade, clima, basal}</div>
+          <p>Gestação de ~30 dias cabe dentro do passo mensal; o estro pós-parto permite uma ninhada por mês na época favorável. Fêmeas acima da capacidade de tocas reproduzem-se em "tocas de superfície", com menor sucesso. A coccidiose juvenil cresce com a densidade; surtos de doença endêmica só podem surgir acima de 20 coelhos/ha. <b>Mixomatose e doença hemorrágica viral não foram incluídas</b>: são introduzidas por pessoas ou vetores vindos de fora, e a ilha é isolada.</p>
+          <h3>5. Genética</h3>
+          <p>"Gene dropping" explícito em 48 loci neutros: cada filhote herda um alelo sorteado de cada genitor. Como os 4 alelos fundadores de cada locus são distintos, F individual = fração de loci homozigotos (identidade por descendência realizada). A depressão endogâmica atua por <b>equivalentes letais</b>, não por uma penalidade anual arbitrária: sobrevivência juvenil × e^(−B·F) com 2B = 3,14 (B = 1,57) e tamanho de ninhada × e^(−0,6·F). Expurgo de alelos deletérios (purging) não foi modelado, o que tende a superestimar o custo em populações muito antigas.</p>
+          <h3>6. Solo e água</h3>
+<div class="eq">erosão (t/ha/mês) = [1,6·(P/70)^1,2·(0,5+intensidade) + 1,2·(1−W)] · (1 − cobertura)²
+profundidade −= erosão/130 cm ;  MO += 0,002·(aportes/aportes_ref − MO) − 0,003·erosão
+CRA = 110 mm · (0,7+0,3·MO) · (1−0,3·crosta) · f(profundidade)</div>
+          <h3>7. Limitações</h3>
+          <ul>
+            <li>Espaço implícito: a heterogeneidade é aproximada por um fator de "manchas" e por 5% de refúgios inacessíveis. Um modelo espacial explícito poderia mudar a persistência.</li>
+            <li>Muitos coeficientes de vegetação e solo são hipóteses plausíveis, não medições de uma ilha real. Os resultados mostram mecanismos e ordens de grandeza, não previsões exatas.</li>
+            <li>A premissa de 6.000 coelhos em 100 ha implica ~60 coelhos/ha, densidade muito alta para coelhos selvagens; uma ilha maior e menos produtiva daria dinâmica semelhante com números diferentes.</li>
+            <li>Sem evolução (adaptação), sem expurgo genético, sem predadores e sem imigração, por definição do experimento.</li>
+          </ul>
+        </div>
+        <div class="cartao span2">
+          <h3>8. Parâmetros principais</h3>
+          <div class="tabela-box" style="max-height:none"><table>
+            <thead><tr><th class="l">Parâmetro</th><th>Valor usado</th><th class="l">Faixa / justificativa</th><th class="l">Origem</th></tr></thead>
+            <tbody>
+              <tr><td>Espécie</td><td>Oryctolagus cuniculus</td><td class="l">Coelho-europeu: a espécie de coelho mais estudada em ilhas e em introduções</td><td class="l"><span class="tag lit">literatura</span></td></tr>
+              <tr><td>Gestação</td><td>~30 dias (1 mês)</td><td class="l">28–33 dias</td><td class="l"><span class="tag lit">literatura</span> Thompson &amp; King 1994</td></tr>
+              <tr><td>Maturidade sexual</td><td>4 meses</td><td class="l">3,5–5 meses; filhotes do início da estação reproduzem-se no mesmo ano</td><td class="l"><span class="tag lit">literatura</span></td></tr>
+              <tr><td>Ninhada média</td><td>5 (Poisson)</td><td class="l">3–7 em populações selvagens, menor com pior nutrição</td><td class="l"><span class="tag lit">literatura</span> Myers &amp; Poole 1962</td></tr>
+              <tr><td>Reabsorção embrionária</td><td>7% → ~67% em má condição</td><td class="l">Reabsorção de ninhadas inteiras é comum em condições ruins</td><td class="l"><span class="tag lit">literatura</span> Brambell 1942</td></tr>
+              <tr><td>Densidade e reprodução</td><td>via nutrição e tocas</td><td class="l">Reprodução dependente da densidade e da idade da fêmea</td><td class="l"><span class="tag lit">literatura</span> Rödel et al. 2004</td></tr>
+              <tr><td>Mortalidade basal adulta</td><td>25%/ano</td><td class="l">Sem predadores; com predadores é bem maior</td><td class="l"><span class="tag hip">hipótese</span></td></tr>
+              <tr><td>Mortalidade basal juvenil</td><td>9%/mês</td><td class="l">Desmame, acidentes; a fome e a doença entram à parte</td><td class="l"><span class="tag hip">hipótese</span></td></tr>
+              <tr><td>Necessidade alimentar</td><td>50 g MS digestível/dia</td><td class="l">Adulto de ~1,5–2 kg; ingestão de ~60–95 g MS/dia</td><td class="l"><span class="tag lit">literatura</span> Cheeke 1987 (nutrição de coelhos)</td></tr>
+              <tr><td>Digestibilidade</td><td>verde 0,72 · broto 0,55 · seca 0,40 · casca 0,28</td><td class="l">Ordem de grandeza para forragens</td><td class="l"><span class="tag hip">hipótese</span></td></tr>
+              <tr><td>Resposta funcional</td><td>h = 110 kg MS/ha (grama)</td><td class="l">Herbívoros comem menos quando o pasto é baixo</td><td class="l"><span class="tag lit">literatura</span> Short 1985 (forma); valor: <span class="tag hip">hipótese</span></td></tr>
+              <tr><td>Área da ilha</td><td>100 ha</td><td class="l">Escolha; com a premissa de 6.000, define a densidade</td><td class="l"><span class="tag hip">hipótese</span></td></tr>
+              <tr><td>Crescimento potencial da grama</td><td id="parGpot">—</td><td class="l">Calibrado para que a primeira primavera média sustente 6.000 coelhos</td><td class="l"><span class="tag cal">calibrado</span></td></tr>
+              <tr><td>Chuva de referência</td><td>210 / 90 / 150 / 130 mm</td><td class="l">Primavera/verão/outono/inverno; primavera entre 70% e 130%, AR(1) com ρ = 0,45</td><td class="l"><span class="tag hip">hipótese</span> (premissa do experimento)</td></tr>
+              <tr><td>Equivalentes letais</td><td>2B = 3,14 (juvenil); 0,6 (ninhada)</td><td class="l">Mediana de 40 populações de mamíferos em cativeiro; ~12 somando o ciclo de vida na natureza</td><td class="l"><span class="tag lit">literatura</span> Ralls et al. 1988; O'Grady et al. 2006</td></tr>
+              <tr><td>Erosão</td><td>∝ chuva × (1−cobertura)²</td><td class="l">Forma inspirada na USLE; coeficientes para solo arenoso costeiro</td><td class="l"><span class="tag lit">literatura</span> Wischmeier &amp; Smith 1978 (forma)</td></tr>
+              <tr><td>Árvore</td><td>Olea europaea (oliveira-brava) hipotética</td><td class="l">Perene, resistente à seca; coelhos roem a casca da base em períodos de fome</td><td class="l"><span class="tag hip">hipótese</span></td></tr>
+            </tbody></table></div>
+        </div>
+        <div class="cartao span2">
+          <h3>9. Referências</h3>
+          <p class="muted small">Referências citadas de memória pelo autor do modelo, como base dos mecanismos e das faixas de valores. Confira os detalhes bibliográficos antes de citá-las formalmente. Nenhuma foi usada para "copiar" um resultado: os números da ilha são produzidos pelo modelo.</p>
+          <p class="ref">Brambell, F.W.R. (1942). Intra-uterine mortality of the wild rabbit, <i>Oryctolagus cuniculus</i>. Proceedings of the Royal Society B.</p>
+          <p class="ref">Caughley, G. (1970). Eruption of ungulate populations, with emphasis on Himalayan thar in New Zealand. <i>Ecology</i> 51.</p>
+          <p class="ref">Cheeke, P.R. (1987). <i>Rabbit Feeding and Nutrition</i>. Academic Press.</p>
+          <p class="ref">Courchamp, F., Chapuis, J.-L. &amp; Pascal, M. (2003). Mammal invaders on islands: impact, control and control impact. <i>Biological Reviews</i> 78.</p>
+          <p class="ref">Bergstrom, D.M. et al. (2009). Indirect effects of invasive species removal devastate World Heritage Island. <i>Journal of Applied Ecology</i> 46.</p>
+          <p class="ref">Frankham, R., Ballou, J.D. &amp; Briscoe, D.A. (2010). <i>Introduction to Conservation Genetics</i>, 2ª ed. Cambridge University Press.</p>
+          <p class="ref">Grimm, V. et al. (2006). A standard protocol for describing individual-based and agent-based models. <i>Ecological Modelling</i> 198.</p>
+          <p class="ref">Klein, D.R. (1968). The introduction, increase, and crash of reindeer on St. Matthew Island. <i>Journal of Wildlife Management</i> 32.</p>
+          <p class="ref">Myers, K. &amp; Poole, W.E. (1962). A study of the biology of the wild rabbit in confined populations. III. Reproduction. <i>Australian Journal of Zoology</i>.</p>
+          <p class="ref">Noy-Meir, I. (1975). Stability of grazing systems: an application of predator–prey graphs. <i>Journal of Ecology</i> 63.</p>
+          <p class="ref">O'Grady, J.J. et al. (2006). Realistic levels of inbreeding depression strongly affect extinction risk in wild populations. <i>Biological Conservation</i> 133.</p>
+          <p class="ref">Ralls, K., Ballou, J.D. &amp; Templeton, A. (1988). Estimates of lethal equivalents and the cost of inbreeding in mammals. <i>Conservation Biology</i> 2.</p>
+          <p class="ref">Rödel, H.G. et al. (2004). Density-dependent reproduction in the European rabbit. <i>Oikos</i> 104.</p>
+          <p class="ref">Short, J. (1985). The functional response of kangaroos, sheep and rabbits in an arid grazing system. <i>Journal of Applied Ecology</i> 22.</p>
+          <p class="ref">Thompson, H.V. &amp; King, C.M. (eds.) (1994). <i>The European Rabbit: the history and biology of a successful colonizer</i>. Oxford University Press.</p>
+          <p class="ref">Thornthwaite, C.W. &amp; Mather, J.R. (1955). The water balance. <i>Publications in Climatology</i> 8.</p>
+          <p class="ref">Wischmeier, W.H. &amp; Smith, D.D. (1978). <i>Predicting rainfall erosion losses</i>. USDA Agriculture Handbook 537.</p>
+          <p class="ref">Wright, S. (1922). Coefficients of inbreeding and relationship. <i>American Naturalist</i> 56.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="rodape"><div class="wrap" id="rodape">Ilha 40 · simulação ecológica independente · motor <span id="versao"></span></div></footer>
+
+<!-- Máquina do tempo -->
+<div class="timebar" role="region" aria-label="Viagem no tempo">
+  <div class="wrap">
+    <div class="tb-btns">
+      <button class="tb-btn" id="tbAnoMenos" title="Voltar um ano" aria-label="Voltar um ano">⏮</button>
+      <button class="tb-btn" id="tbMenos" title="Voltar uma estação" aria-label="Voltar uma estação">◀</button>
+      <button class="tb-btn play" id="tbPlay" title="Reproduzir / pausar" aria-label="Reproduzir">▶</button>
+      <button class="tb-btn" id="tbMais" title="Avançar uma estação" aria-label="Avançar uma estação">▶</button>
+      <button class="tb-btn" id="tbAnoMais" title="Avançar um ano" aria-label="Avançar um ano">⏭</button>
+    </div>
+    <div class="tb-quando"><b id="tbQuando">Início</b><span id="tbN">2 coelhos</span></div>
+    <div class="tb-slider"><div class="tb-marcas" id="tbMarcas"></div><input type="range" id="tbRange" min="0" max="160" value="0" aria-label="Momento da simulação"></div>
+    <div class="tb-sel">
+      <select id="tbAno" aria-label="Ano"></select>
+      <select id="tbEst" aria-label="Estação"><option value="0">Primavera</option><option value="1">Verão</option><option value="2">Outono</option><option value="3">Inverno</option></select>
+      <select id="tbVel" aria-label="Velocidade"><option value="900">0,5×</option><option value="450" selected>1×</option><option value="200">2×</option><option value="80">5×</option></select>
+    </div>
+  </div>
+</div>
+
+<div class="carregando" id="carregando" role="alert"><div class="cx"><div class="spinner"></div><div id="carregandoTxt">Simulando…</div></div></div>
+
+<script src="dados/resultados.js" onerror="window.ILHA_DADOS_ERRO=true"></script>
+<script src="js/engine.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+﻿# Python
+__pycache__/
+*.pyc
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+# Configuracoes locais
+.claude/
+.vscode/
