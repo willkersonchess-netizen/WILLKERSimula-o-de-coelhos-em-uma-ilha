@@ -1,6 +1,6 @@
 # Ilha · O Experimento dos Dois Coelhos
 
-Simulação ecológica de **40 ou 100 anos** de uma ilha isolada que recebe **um único casal de coelhos**,
+Simulação ecológica de **10 a 100 anos** (padrão: 50) de uma ilha isolada que recebe **um único casal de coelhos**,
 com a opção de introduzir **predadores** (gato feral, raposa-vermelha, arminho, aves de rapina).
 Modelo baseado em indivíduos (IBM), com passo mensal, acoplado a modelos de grama, arbustos,
 uma árvore, solo, água e clima, e um site interativo que mostra tudo.
@@ -10,7 +10,7 @@ uma árvore, solo, água e clima, e um site interativo que mostra tudo.
 | Arquivo | O que faz |
 |---|---|
 | `INICIAR.bat` | Abre o site (se os dados não existirem, roda a simulação antes). |
-| `SIMULAR.bat` | Roda a simulação original de 40 e de 100 anos, Monte Carlo e 18 cenários (alguns minutos) e abre o site. |
+| `SIMULAR.bat` | Pré-calcula 100 anos: simulação original, Monte Carlo e 20 cenários (alguns minutos) e abre o site. |
 | `ANALISAR.bat` | Análise estatística complementar em Python → `dados/analise.txt`. |
 | `SERVIDOR.bat` | (Opcional) serve a pasta em http://localhost:8040. |
 
@@ -21,9 +21,9 @@ que funciona sem servidor (o `fetch()` de JSON é bloqueado em `file://`, causa 
 Pela linha de comando:
 
 ```bash
-node simular.js            # completo: 40 anos (100 + 30 rep./cenário) e 100 anos (50 + 16)
+node simular.js            # completo: 100 anos, 80 repetições + 25 por cenário
 node simular.js --rapido   # rápido, para testes
-node simular.js --so40     # só 40 anos
+python analyze_results.py 70   # análise para 70 anos (padrão 50)
 python analyze_results.py
 ```
 
@@ -38,8 +38,7 @@ js/app.js             interface: painel, ilha, gráficos, laboratório, relatór
 simular.js            executor: original + Monte Carlo + cenários → dados/
 analyze_results.py    análise estatística complementar (Python, só biblioteca padrão)
 dados/
-  resultados.js/.json       40 anos (lidos pelo site)
-  resultados100.js/.json    100 anos (carregados quando o visitante escolhe 100 anos)
+  resultados.js/.json   100 anos + repetições compactas (o site recorta para qualquer duração)
   tabela_sazonal.csv    161 registros (início + 160 estações)
   tabela_anual.csv      40 anos
   cenarios.csv          comparação dos cenários
@@ -55,11 +54,16 @@ parâmetro realmente muda a matemática. Mesma semente + mesmos parâmetros = re
 
 ## O site
 
-Organizado em 5 abas para não sobrecarregar quem não é da área: **Visão geral** (a história em
-capítulos, a ilha agora em cartões de linguagem simples, o gráfico principal e as observações),
-**Natureza**, **Coelhos**, **Experimentos** (predadores, cenários e Laboratório) e **Relatório**
-(conclusão, perguntas, linha do tempo, glossário e método). Cada seção começa com uma frase
-"Em poucas palavras"; termos técnicos têm ajuda "?"; gráficos detalhados ficam em "Ver mais".
+Página única com barra lateral de navegação. No topo, a **Central de experimento**: duração de 10 a
+100 anos (padrão 50), predadores, chuva e tamanho da ilha, com o botão Simular. Depois vêm a história em
+capítulos, a ilha agora (cartões em linguagem simples), o gráfico principal, as observações, natureza,
+coelhos, experimentos (predadores, cenários, Laboratório) e relatório. Termos técnicos têm ajuda "?";
+gráficos detalhados ficam em "Ver mais".
+
+**Duração livre sem recalcular:** com a mesma semente, os primeiros N anos de uma simulação de 100 anos
+são idênticos a uma simulação de N anos (o clima é gerado ano a ano e a demografia mês a mês). O
+`simular.js` verifica isso; o site recorta os 100 anos pré-calculados para a duração escolhida, com
+Monte Carlo e cenários.
 
 
 Painel com 12 indicadores e índice de saúde (com fórmula explícita) · ilustração da ilha que
@@ -96,6 +100,15 @@ principal: **sem predadores, os coelhos destroem o pasto e somem em ~70% das rep
 (40 anos) e ~94% (100 anos); com aves de rapina, ~7% e ~12%**: o predador freia a explosão
 que levaria ao colapso. Predadores que dependem só dos coelhos (raposas) costumam morrer de
 fome depois de derrubar a população.
+
+## Revisão de realismo (motor v2.2)
+
+- Predadores: filhotes passam a depender dos pais (não caçam e comem menos) e morrem primeiro quando
+  falta comida; adultos têm reservas corporais; cada espécie tem território máximo por km². Na ilha
+  de 100 ha (1 km²) cabem poucos predadores, por isso populações pequenas podem sumir por azar.
+- Tamanho da ilha virou experimento: com 400 ha, gatos e coelhos convivem (extinção dos coelhos cai
+  de ~80% para ~16% em 50 anos).
+- Reprodução dos coelhos menos exigente quanto à grama verde no verão.
 
 ## Hospedar de graça
 

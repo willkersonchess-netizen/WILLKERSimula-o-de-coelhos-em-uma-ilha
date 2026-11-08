@@ -1,5 +1,5 @@
 /* =====================================================================
-   ILHA 40 — Interface
+   ILHA — Interface
    Dados:   window.ILHA_DADOS (dados/resultados.js, gerado por simular.js)
    Motor:   window.IlhaEngine (js/engine.js) — usado pelo Laboratório
    Gráficos: window.Grafico (js/charts.js)
@@ -18,18 +18,16 @@
   const EST = Eng.ESTACOES;
   const EST_IC = ['🌸', '☀️', '🍂', '❄️'];
   const C = {
-    pop: '#f3d27a', grass: '#9bd17a', grass2: '#5fa65a', dry: '#d9b95f', earth: '#c48356', sea: '#4fa3c4', sky: '#7cc4e0',
-    danger: '#e66a5a', warn: '#e8a94a', good: '#7fd18a', gene: '#b89be6', rabbit: '#f0e6d6', sand: '#e7cf96', muted: '#8a9a8e',
-    macho: '#7cc4e0', femea: '#e7a3c0'
+    pop: '#1c1c1a', grass: '#4f7d3b', grass2: '#7aa45f', dry: '#b88f2e', earth: '#a8673d', sea: '#3b7ea1', sky: '#4a86b8',
+    danger: '#c4513b', warn: '#c48720', good: '#3f8a4f', gene: '#7b5fb0', rabbit: '#f0e6d6', sand: '#c9a95c', muted: '#8c8a81',
+    macho: '#4a86b8', femea: '#c96b8e', ninho: '#b9b4a3'
   };
-  const COR_CAUSA = { fome: '#e8a94a', desidratacao: '#7cc4e0', doenca: '#b89be6', surto: '#e66a5a', idade: '#9aa89c', neonatal: '#f0e6d6', endogamia: '#d07fc0', clima: '#4fa3c4', basal: '#5c7464', predacao: '#ff7b54' };
+  const COR_CAUSA = { fome: '#c48720', desidratacao: '#6fa8d6', doenca: '#8f73c4', surto: '#c4513b', idade: '#a3a094', neonatal: '#d8d2bf', endogamia: '#c96b8e', clima: '#3b7ea1', basal: '#5c6b5c', predacao: '#e07a3f' };
   const NOME_CAUSA = { fome: 'Fome', desidratacao: 'Desidratação', doenca: 'Doença endêmica', surto: 'Surto', idade: 'Idade', neonatal: 'Ninho (neonatal)', endogamia: 'Endogamia (ninho)', clima: 'Calor/frio', basal: 'Basal (acidentes, parasitas)', predacao: 'Predadores' };
-  const COR_PRED = { gato: '#ff9f6b', raposa: '#e66a5a', arminho: '#d9c27a', rapina: '#b89be6' };
+  const COR_PRED = { gato: '#e07a3f', raposa: '#c4513b', arminho: '#a8873a', rapina: '#7b5fb0' };
   const CHUVA_REF = [210, 90, 150, 130];
-  const EXTENSO = { 40: 'Quarenta', 100: 'Cem' };
 
-  let D = null, ORIG = null, RES = null, IDX = 0, timer = null, vista = 'geral', cenSel = 'A', predSel = 'P1', labMC = null, DUR = 40;
-  const DADOS = {};
+  let D = null, BASE100 = null, ORIG = null, RES = null, IDX = 0, timer = null, vista = 'geral', cenSel = 'A', predSel = 'P1', labMC = null, DUR = 50;
   let cumNasc = [], cumMort = [];
   const G = {};
 
@@ -58,62 +56,111 @@
   function iniciar() {
     if (!Eng) { erroFatal('O arquivo js/engine.js não foi carregado.'); return; }
     if (typeof Grafico === 'undefined') { erroFatal('O arquivo js/charts.js não foi carregado.'); return; }
-    DADOS[40] = (window.ILHA_DADOS && window.ILHA_DADOS.base) ? window.ILHA_DADOS : semDados(40);
-    usarDados(40);
-    $('parGpot').textContent = fmt1(ORIG.calibracao.Gpot) + ' kg MS/ha/mês (pico)';
-    montarTimebar(); montarLab(); montarEventosUI(); montarAbas(); montarDuracao(); montarGuia();
+    D = (window.ILHA_DADOS && window.ILHA_DADOS.base) ? window.ILHA_DADOS : semDados();
+    BASE100 = D.base;
+    (D.cenarios || []).forEach(c => { c.serie100 = c.serie; });
+    $('versao').textContent = 'v' + (BASE100.versao || Eng.VERSAO) + (BASE100.gerado ? ' · dados gerados em ' + new Date(BASE100.gerado).toLocaleString('pt-BR') : '');
+    $('parGpot').textContent = fmt1(BASE100.calibracao.Gpot) + ' kg MS/ha/mês (pico)';
+    prepararDuracao(DUR);
+    RES = ORIG;
+    montarTimebar(); montarLab(); montarEventosUI(); montarNavegacao(); montarCentral(); montarGuia();
+    sincronizarDuracao(DUR);
     renderTudo();
     irPara(0);
   }
-  // Sem o arquivo de dados: roda a simulação original no próprio navegador (sem Monte Carlo/cenários).
-  function semDados(anos) {
-    const res = Eng.simular({ semente: 42, anos });
-    console.warn(`Dados pré-calculados de ${anos} anos não encontrados: simulação executada no navegador. Rode "node simular.js".`);
-    return { base: res, respostas: Eng.analisar(res), mcBase: null, cenarios: [], meta: { semDados: true, anos } };
+  // Sem o arquivo de dados: roda a simulação original (100 anos) no próprio navegador, sem Monte Carlo/cenários.
+  function semDados() {
+    console.warn('dados/resultados.js não encontrado: simulação executada no navegador. Rode "node simular.js".');
+    return { base: Eng.simular({ semente: 42, anos: 100 }), repsBase: null, cenarios: [], meta: { semDados: true, anos: 100 } };
   }
-  function usarDados(anos) {
-    DUR = anos; D = DADOS[anos]; ORIG = D.base; RES = ORIG; labMC = null;
-    $('versao').textContent = 'v' + (ORIG.versao || Eng.VERSAO) + (ORIG.gerado ? ' · dados gerados em ' + new Date(ORIG.gerado).toLocaleString('pt-BR') : '');
-  }
-  // Carrega dados/resultados100.js sob demanda (funciona também abrindo o arquivo direto, sem servidor)
-  function carregarDuracao(anos) {
-    return new Promise((ok) => {
-      if (DADOS[anos]) return ok();
-      if (anos === 40) { DADOS[40] = semDados(40); return ok(); }
-      carregando(true, 'Carregando a simulação de 100 anos…');
-      const s = document.createElement('script');
-      s.src = 'dados/resultados100.js';
-      s.onload = () => { DADOS[100] = (window.ILHA_DADOS_100 && window.ILHA_DADOS_100.base) ? window.ILHA_DADOS_100 : semDados(100); carregando(false); ok(); };
-      s.onerror = () => { carregando(true, 'Simulando 100 anos no navegador…'); setTimeout(() => { DADOS[100] = semDados(100); carregando(false); ok(); }, 30); };
-      document.body.appendChild(s);
+  // Recorta os 100 anos pré-calculados para a duração escolhida (idêntico a simular N anos)
+  function prepararDuracao(anos) {
+    DUR = clamp(Math.round(anos), 10, BASE100.parametros.anos);
+    ORIG = Eng.truncar(BASE100, DUR);
+    D.mcBase = D.repsBase ? Eng.mcDeReps(D.repsBase, DUR) : null;
+    const n = DUR * 4 + 1;
+    (D.cenarios || []).forEach(c => {
+      const s = c.serie100;
+      c.serie = Object.assign({}, s, { N: s.N.slice(0, n), grama: s.grama.slice(0, n), R: s.R.slice(0, n), Hs: s.Hs.slice(0, n), arvore: s.arvore.slice(0, n), solo: s.solo.slice(0, n), F: s.F.slice(0, n), K: s.K.slice(0, n), saude: s.saude.slice(0, n), pred: s.pred.slice(0, n), predPor: Object.fromEntries(Object.entries(s.predPor || {}).map(([t, v]) => [t, v.slice(0, n)])) });
+      c.mc = c.reps ? Eng.mcDeReps(c.reps, DUR) : null;
     });
+    D.meta.anosVista = DUR;
   }
-  function montarDuracao() {
-    document.querySelectorAll('.duracao button').forEach(b => b.addEventListener('click', async () => {
-      const anos = +b.dataset.anos; if (anos === DUR && RES === ORIG) return;
-      parar();
-      await carregarDuracao(anos);
-      usarDados(anos);
-      document.querySelectorAll('.duracao button').forEach(x => x.classList.toggle('on', +x.dataset.anos === anos));
-      $('labAnos').value = String(anos);
-      atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
-    }));
+  function sincronizarDuracao(anos) {
+    $('ccAnos').value = anos; $('ccAnosVal').textContent = anos;
+    $('durTopo').value = anos; $('durTopoVal').textContent = anos + ' anos';
+    $('labAnos').value = anos; $('labAnosVal').textContent = anos + ' anos';
+    $('topoTitulo').textContent = `Ilha · ${anos} anos`;
   }
-  function montarAbas() {
-    const ir = (pag, alvo) => {
-      document.querySelectorAll('.pagina').forEach(p => p.classList.toggle('ativa', p.dataset.pagina === pag));
-      document.querySelectorAll('.aba').forEach(a => { a.classList.toggle('ativa', a.dataset.pag === pag); a.setAttribute('aria-selected', a.dataset.pag === pag); });
-      if (alvo) { const el = document.getElementById(alvo); if (el) el.scrollIntoView({ behavior: 'smooth' }); }
-      else window.scrollTo({ top: 0 });
-      if (history.replaceState) history.replaceState(null, '', '#' + pag);
+  function porExtenso(n) {
+    const u = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const e = ['dez', 'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const d = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    let s;
+    if (n === 100) s = 'cem'; else if (n < 10) s = u[n]; else if (n < 20) s = e[n - 10]; else s = d[Math.floor(n / 10)] + (n % 10 ? ' e ' + u[n % 10] : '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  // Navegação: página única; o menu lateral destaca a seção visível
+  function montarNavegacao() {
+    window.irPagina = (_pag, alvo) => { const el = document.getElementById(alvo || 'topo'); if (el) el.scrollIntoView({ behavior: 'smooth' }); };
+    const links = [...document.querySelectorAll('.menu a')];
+    links.forEach(a => a.addEventListener('click', () => document.body.classList.remove('menu-aberto')));
+    $('abrirMenu').addEventListener('click', () => document.body.classList.toggle('menu-aberto'));
+    $('veu').addEventListener('click', () => document.body.classList.remove('menu-aberto'));
+    if (!('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver((ents) => {
+      ents.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle('ativo', l.getAttribute('href') === '#' + e.target.id)); });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
+  }
+  // Central de experimento (tela principal): duração, predadores, chuva, tamanho da ilha
+  function montarCentral() {
+    let tDur = null;
+    const mudarDur = (v, imediato) => {
+      sincronizarDuracao(+v);
+      clearTimeout(tDur);
+      tDur = setTimeout(() => aplicarExperimento(), imediato ? 0 : 350);
     };
-    window.irPagina = ir;
-    document.querySelectorAll('[data-pag]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); ir(a.dataset.pag); }));
-    document.querySelectorAll('[data-ir]').forEach(a => a.addEventListener('click', () => ir('geral', a.dataset.ir)));
-    const h = (location.hash || '').slice(1);
-    if (['natureza', 'coelhos', 'experimentos', 'relatorio'].includes(h)) ir(h);
+    $('ccAnos').addEventListener('input', () => mudarDur($('ccAnos').value));
+    $('durTopo').addEventListener('input', () => mudarDur($('durTopo').value));
+    document.querySelectorAll('#ccPred button').forEach(b => b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on);
+      const t = b.dataset.t; $('lpOn_' + t).checked = on; $('lp_' + t).classList.toggle('on', on);
+      marcarPendente();
+    }));
+    const seg = (id, param) => document.querySelectorAll(`#${id} button`).forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('on', x === b));
+      const inp = $('par_' + param); inp.value = b.dataset.v; inp.dispatchEvent(new Event('input'));
+      marcarPendente();
+    }));
+    seg('ccClima', 'chuva_vies'); seg('ccIlha', 'area_ha');
+    $('ccSimular').addEventListener('click', () => aplicarExperimento(true));
+    $('ccReset').addEventListener('click', () => { resetLab(); sincronizarCentral(); aplicarExperimento(true); });
   }
-  function montarGuia() {
+  function marcarPendente() { $('centralStatus').textContent = 'Alterações prontas: clique em Simular.'; $('ccSimular').classList.add('pulsa'); }
+  // Reflete na central o que está no Laboratório
+  function sincronizarCentral() {
+    Object.keys(Eng.PRED_TIPOS).forEach(t => { const b = document.querySelector(`#ccPred button[data-t="${t}"]`); if (b) b.setAttribute('aria-pressed', $('lpOn_' + t).checked); });
+    const marca = (id, v) => document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.v - v) < 1e-9));
+    marca('ccClima', +$('par_chuva_vies').value); marca('ccIlha', +$('par_area_ha').value);
+  }
+  function ehPadrao(p) {
+    return Eng.PARAM_META.every(m => Math.abs(p[m.k] - Eng.PADRAO[m.k]) < 1e-9) && p.fundadores === 'par_adulto' && p.semente === 42 && p.surtos_doenca && !p.predadores.length;
+  }
+  // Mostra a simulação original recortada (instantâneo) ou roda o motor com os parâmetros escolhidos
+  function aplicarExperimento(clicou) {
+    const p = lerLab();
+    $('ccSimular').classList.remove('pulsa');
+    if (ehPadrao(p) && +$('labReps').value === 1) {
+      parar();
+      prepararDuracao(p.anos); RES = ORIG; labMC = null;
+      atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
+      $('centralStatus').textContent = `Mostrando a simulação original (${p.anos} anos).`;
+      $('labResultado').innerHTML = '';
+      return;
+    }
+    rodarLab(clicou);
+  }  function montarGuia() {
     let fechado = false; try { fechado = localStorage.getItem('ilha_guia') === '1'; } catch (e) { /* sem armazenamento */ }
     if (fechado) $('guiaBox').classList.add('oculto');
     $('guiaFechar').addEventListener('click', () => { $('guiaBox').classList.add('oculto'); try { localStorage.setItem('ilha_guia', '1'); } catch (e) { /* ok */ } });
@@ -132,7 +179,7 @@
     $('fonteBadge').classList.toggle('lab', lab);
     const anos = RES.parametros.anos;
     document.querySelectorAll('.tAnos').forEach(e => { e.textContent = anos; });
-    document.querySelectorAll('.tAnosExtenso').forEach(e => { e.textContent = EXTENSO[anos] || anos; });
+    document.querySelectorAll('.tAnosExtenso').forEach(e => { e.textContent = porExtenso(anos); });
     document.querySelectorAll('.tEst').forEach(e => { e.textContent = anos * 4; });
     const dec = anos <= 40 ? 10 : 25;
     $('popFaixa').innerHTML = `<option value="">${anos} anos</option>` + Array.from({ length: Math.ceil(anos / dec) }, (_, k) => `<option value="${k * dec * 4}-${Math.min(anos, (k + 1) * dec) * 4}">Anos ${k * dec + 1}–${Math.min(anos, (k + 1) * dec)}</option>`).join('');
@@ -145,10 +192,17 @@
     const st = [
       { v: fmt(S.Nmax), l: 'maior população (' + quando(S.iMax) + ')' },
       { v: S.extinta ? 'Extinta' : fmt(S.Nfinal), l: S.extinta ? 'população final: extinção ' + mesTxt(S.mesExtincao) : 'coelhos ao final dos ' + RES.parametros.anos + ' anos' },
-      { v: mc ? pct(mc.pExtincao) : '—', l: mc ? `risco de extinção em ${RES.parametros.anos} anos (${mc.reps} repetições)` : 'risco de extinção (rode o Monte Carlo)' },
+      { v: mc ? pct(mc.pExtincao) : '—', l: mc ? `risco de extinção em ${RES.parametros.anos} anos (${mc.reps} repetições)` : 'risco de extinção: escolha repetições no Laboratório' },
       { v: Math.round(S.final.saude) + '/100', l: 'saúde do ecossistema no fim' }
     ];
     $('heroiStats').innerHTML = st.map(s => `<div class="hs"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
+    // minigráfico: coelhos ao fim de cada ano (barras claras = anos de queda)
+    const A = RES.anual;
+    $('heroiMgSub').textContent = `anos 1 a ${A.length} · clique para ir ao ano`;
+    grafico('gHeroi', { _sazonal: false, _anual: true, altura: 150, legenda: false, padL: 44, padT: 8, padB: 24,
+      passos: [1, 2, 5, 10, 20, 25], rotuloX: (i) => String(i + 1), titulo: (i) => 'Fim do ano ' + (i + 1),
+      series: [{ rotulo: 'Coelhos', tipo: 'barra', dados: A.map(a => a.Nfim), cor: C.pop, corFn: (v, i) => i > 0 && v < A[i - 1].Nfim * 0.6 ? '#c9c5b6' : C.pop }],
+      fmtV: (v) => fmt(v) + ' coelhos', onClick: (i) => { parar(); irPara((i + 1) * 4); } });
   }
   function mesTxt(m) { if (m === null || m === undefined) return ''; const y = Math.floor(m / 12), s = Math.floor((m % 12) / 3); return (s === 0 ? 'na ' : 'no ') + EST[s].toLowerCase() + ' do ano ' + (y + 1); }
 
@@ -158,13 +212,13 @@
     const marcas = RES.eventos.filter(e => e.i > 0).map(e => ({ i: e.i, icone: e.icone, rotulo: e.titulo, cor: e.nivel === 'mau' ? C.danger : e.nivel === 'bom' ? C.good : C.warn }));
     const mostrarK = $('popK').getAttribute('aria-pressed') === 'true';
     grafico('gPop', baseSaz({
-      altura: 380, zoom: true, log: $('popLog').getAttribute('aria-pressed') === 'true', rotuloY: 'coelhos vivos', aria: 'Gráfico de linha da população de coelhos ao longo do tempo',
+      altura: 440, zoom: true, log: $('popLog').getAttribute('aria-pressed') === 'true', rotuloY: 'coelhos vivos', aria: 'Gráfico de linha da população de coelhos ao longo do tempo',
       series: [
         { rotulo: 'Capacidade da estação (dinâmica)', dados: col('K'), cor: C.sky, tracejado: true, largura: 1.4, oculto: !mostrarK, semPonto: true },
         { rotulo: 'População de coelhos', dados: col('N'), cor: C.pop, largura: 2.4, area: true }
       ],
-      sombra: { a: 1, b: 0, cor: 'rgba(230,106,90,.28)' },
-      refs: [{ y: P.K_referencia, cor: 'rgba(231,207,150,.55)', texto: 'Referência inicial: ' + fmt(P.K_referencia) + ' (primavera média, ilha intacta)', rotulo: 'Capacidade de referência (premissa)', incluir: true }],
+      sombra: { a: 1, b: 0, cor: 'rgba(196,81,59,.22)' },
+      refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: 'Referência inicial: ' + fmt(P.K_referencia) + ' (primavera média, ilha intacta)', rotulo: 'Capacidade de referência (premissa)', incluir: true }],
       marcas,
       tooltip: (i) => {
         const r = R[i];
@@ -219,22 +273,22 @@
       series: Eng.CAUSAS.map(c => ({ rotulo: NOME_CAUSA[c], tipo: 'area', dados: col(null, r => r.mc[c]), cor: COR_CAUSA[c], opac: .8 })) }));
     grafico('gEstrutura', baseSaz({ rotuloY: 'coelhos', series: [
       { rotulo: 'Adultos', dados: col('adultos'), cor: C.pop },
-      { rotulo: 'Imaturos', dados: col('filhotes'), cor: C.rabbit, tracejado: true },
+      { rotulo: 'Imaturos', dados: col('filhotes'), cor: C.sand, tracejado: true },
       { rotulo: 'Fêmeas reprodutivas', dados: col('femRep'), cor: C.femea }] }));
     grafico('gSobrev', baseSaz({ yMin: 0, yMax: 1, fmtY: (v) => Math.round(v * 100) + '%', series: [
-      { rotulo: 'Filhotes que sobrevivem ao ninho', dados: col('sobrevFilhotes'), cor: C.rabbit },
+      { rotulo: 'Filhotes que sobrevivem ao ninho', dados: col('sobrevFilhotes'), cor: C.earth },
       { rotulo: 'Sobrevivência da população na estação', dados: col('sobrev'), cor: C.good }], fmtV: (v) => pct(v) }));
     grafico('gIdade', baseSaz({ rotuloY: 'meses / gerações', series: [
       { rotulo: 'Idade média (meses)', dados: col('idadeMedia'), cor: C.sand },
       { rotulo: 'Geração mais avançada', dados: col('gerMax', r => r.N ? r.gerMax : null), cor: C.gene }] }));
-    grafico('gSexo', baseSaz({ yMin: 0, yMax: 1, fmtY: (v) => Math.round(v * 100) + '%', refs: [{ y: .5, cor: 'rgba(255,255,255,.25)' }],
+    grafico('gSexo', baseSaz({ yMin: 0, yMax: 1, fmtY: (v) => Math.round(v * 100) + '%', refs: [{ y: .5, cor: 'rgba(28,28,26,.25)' }],
       series: [{ rotulo: 'Fração de machos', dados: col(null, r => r.N >= 4 ? r.machos / r.N : null), cor: C.macho }], fmtV: (v) => pct(v) }));
     const acum = {}; Eng.CAUSAS.forEach(c => { let s = 0; acum[c] = R.map(r => (s += r.mc[c])); });
     grafico('gMortAcum', baseSaz({ empilhado: true, rotuloY: 'mortes acumuladas',
       series: Eng.CAUSAS.map(c => ({ rotulo: NOME_CAUSA[c], tipo: 'area', dados: acum[c], cor: COR_CAUSA[c], opac: .8 })) }));
 
     // Genética
-    grafico('gF', baseSaz({ yMin: 0, fmtY: (v) => v.toFixed(2).replace('.', ','), refs: [{ y: .25, cor: 'rgba(232,169,74,.6)', texto: 'F = 0,25 (filhos de irmãos)' }], series: [
+    grafico('gF', baseSaz({ yMin: 0, fmtY: (v) => v.toFixed(2).replace('.', ','), refs: [{ y: .25, cor: 'rgba(196,135,32,.7)', texto: 'F = 0,25 (filhos de irmãos)' }], series: [
       { rotulo: 'F médio da população', dados: col('F'), cor: C.gene, largura: 2.4 },
       { rotulo: 'F dos filhotes nascidos', dados: col('Fnasc'), cor: C.femea, tracejado: true }], fmtV: fmt3 }));
     grafico('gHe', baseSaz({ yMin: 0, yMax: 1.05, fmtY: (v) => v.toFixed(1).replace('.', ','), series: [
@@ -243,15 +297,15 @@
     grafico('gNe', baseSaz({ log: true, rotuloY: 'indivíduos', series: [
       { rotulo: 'Ne demográfico', dados: col('Ne'), cor: C.gene },
       { rotulo: 'Ne (média harmônica acumulada)', dados: col('NeHarm'), cor: C.sand, tracejado: true },
-      { rotulo: 'População (N)', dados: col('N'), cor: 'rgba(243,210,122,.45)', largura: 1.2 }] }));
+      { rotulo: 'População (N)', dados: col('N'), cor: 'rgba(28,28,26,.25)', largura: 1.2 }] }));
 
     // Clima
     const AN = RES.anual;
-    grafico('gChuvaPrim', baseAno({ yMin: 0, yMax: 1.4, fmtY: (v) => v.toFixed(1).replace('.', ','), refs: [{ y: 1, cor: 'rgba(255,255,255,.35)', texto: 'média' }], series: [
-      { rotulo: 'Multiplicador da chuva de primavera', tipo: 'barra', dados: AN.map(a => a.multPrim), cor: C.sky, corFn: (v) => v < 0.9 ? C.dry : v > 1.1 ? C.sea : '#8fb3a0' }],
+    grafico('gChuvaPrim', baseAno({ yMin: 0, yMax: 1.4, fmtY: (v) => v.toFixed(1).replace('.', ','), refs: [{ y: 1, cor: 'rgba(28,28,26,.3)', texto: 'média' }], series: [
+      { rotulo: 'Multiplicador da chuva de primavera', tipo: 'barra', dados: AN.map(a => a.multPrim), cor: C.sky, corFn: (v) => v < 0.9 ? C.dry : v > 1.1 ? C.sea : '#b9b4a3' }],
       tooltip: (i) => `<div class="tt-t">Ano ${i + 1}</div><div class="tt-r"><span>Primavera</span><b>${pct(AN[i].multPrim)} da média</b></div><div class="tt-r"><span>Chuva na primavera</span><b>${fmt1(AN[i].chuvaPrim)} mm</b></div><div class="tt-r"><span>População no fim do ano</span><b>${fmt(AN[i].Nfim)}</b></div>` }));
     const refAno = CHUVA_REF.reduce((a, b) => a + b, 0) * (P.chuva_mult || 1);
-    grafico('gChuvaAno', baseAno({ rotuloY: 'mm/ano', refs: [{ y: refAno, cor: 'rgba(255,255,255,.35)', texto: 'referência' }], series: [{ rotulo: 'Chuva no ano', tipo: 'barra', dados: AN.map(a => a.chuva), cor: C.sea }], fmtV: (v) => fmt1(v) + ' mm' }));
+    grafico('gChuvaAno', baseAno({ rotuloY: 'mm/ano', refs: [{ y: refAno, cor: 'rgba(28,28,26,.3)', texto: 'referência' }], series: [{ rotulo: 'Chuva no ano', tipo: 'barra', dados: AN.map(a => a.chuva), cor: C.sea }], fmtV: (v) => fmt1(v) + ' mm' }));
     grafico('gTemp', baseSaz({ rotuloY: '°C', yMin: null, series: [{ rotulo: 'Temperatura média da estação', dados: col(null, r => r.inicial ? null : r.T), cor: C.warn }], fmtV: (v) => fmt1(v) + ' °C' }));
     grafico('gUmid', baseSaz({ yMin: 0, yMax: 1.1, fmtY: (v) => v.toFixed(1).replace('.', ','), series: [
       { rotulo: 'Umidade média do solo (relativa)', dados: col('umidade'), cor: C.sky, area: true },
@@ -262,12 +316,12 @@
       { rotulo: 'Capacidade da estação', dados: col('K'), cor: C.sky, tracejado: true, semPonto: true },
       { rotulo: 'População', dados: col('N'), cor: C.pop, largura: 2.2 },
       { rotulo: 'Capacidade sustentável anual', dados: col('Ksust'), cor: C.good, largura: 1.6, semPonto: true }],
-      sombra: { a: 1, b: 0, cor: 'rgba(230,106,90,.3)' },
-      refs: [{ y: P.K_referencia, cor: 'rgba(231,207,150,.5)', texto: 'premissa: ' + fmt(P.K_referencia) }] }));
-    grafico('gCapPrim', baseAno({ rotuloY: 'coelhos', refs: [{ y: P.K_referencia, cor: 'rgba(231,207,150,.6)', texto: fmt(P.K_referencia) }], series: [
+      sombra: { a: 1, b: 0, cor: 'rgba(196,81,59,.22)' },
+      refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: 'premissa: ' + fmt(P.K_referencia) }] }));
+    grafico('gCapPrim', baseAno({ rotuloY: 'coelhos', refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: fmt(P.K_referencia) }], series: [
       { rotulo: 'Capacidade da primavera', tipo: 'barra', dados: AN.map(a => a.Kprim), cor: C.grass2 },
       { rotulo: 'Capacidade sustentável', tipo: 'barra', dados: AN.map(a => a.Ksust), cor: C.good }] }));
-    grafico('gAlim', baseSaz({ yMin: 0, yMax: 1.15, fmtY: (v) => Math.round(v * 100) + '%', refs: [{ y: 1, cor: 'rgba(255,255,255,.3)' }, { y: .7, cor: 'rgba(230,106,90,.6)', texto: 'crise alimentar (< 70%)' }], series: [
+    grafico('gAlim', baseSaz({ yMin: 0, yMax: 1.15, fmtY: (v) => Math.round(v * 100) + '%', refs: [{ y: 1, cor: 'rgba(28,28,26,.25)' }, { y: .7, cor: 'rgba(230,106,90,.6)', texto: 'crise alimentar (< 70%)' }], series: [
       { rotulo: 'Índice alimentar (média da estação)', dados: col(null, r => r.N > 0 || r.nasc > 0 ? r.indAlim : null), cor: C.warn, area: true }], fmtV: pct }));
     const fontes = [['verde', 'Grama verde', C.grass], ['broto', 'Brotos de arbustos', '#6fae7a'], ['arvore', 'Folhas da árvore', C.sky], ['seca', 'Grama seca', C.dry], ['casca', 'Cascas', C.earth], ['raiz', 'Raízes', C.danger]];
     grafico('gDieta', baseSaz({ empilhado: true, yMin: 0, yMax: 1, fmtY: (v) => Math.round(v * 100) + '%', altura: 240,
@@ -401,7 +455,7 @@
     const ang = clamp(s / 100, 0, 1) * 2 * Math.PI, R0 = 48, cx = 60, cy = 60;
     const x = cx + R0 * Math.sin(ang), y = cy - R0 * Math.cos(ang);
     const arco = s >= 99.9 ? `<circle cx="60" cy="60" r="48" fill="none" stroke="${cor}" stroke-width="10"/>` : `<path d="M60 12 A48 48 0 ${ang > Math.PI ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)}" fill="none" stroke="${cor}" stroke-width="10" stroke-linecap="round"/>`;
-    $('saudeGauge').innerHTML = `<circle cx="60" cy="60" r="48" fill="none" stroke="#203027" stroke-width="10"/>${arco}<text x="60" y="64" text-anchor="middle" fill="#e8eee5" font-family="JetBrains Mono, monospace" font-size="24" font-weight="600">${Math.round(s)}</text><text x="60" y="82" text-anchor="middle" fill="#8a9a8e" font-size="10">de 100</text>`;
+    $('saudeGauge').innerHTML = `<circle cx="60" cy="60" r="48" fill="none" stroke="#ecebe3" stroke-width="10"/>${arco}<text x="60" y="64" text-anchor="middle" fill="#1c1c1a" font-family="Inter, sans-serif" font-size="26" font-weight="600">${Math.round(s)}</text><text x="60" y="82" text-anchor="middle" fill="#8c8a81" font-size="10">de 100</text>`;
     const comp = r.saudeComp;
     $('saudeComp').innerHTML = [['Grama', comp.grama, .30], ['Arbustos', comp.arbustos, .20], ['Árvore', comp.arvore, .15], ['Solo', comp.solo, .25], ['Equilíbrio população/capacidade', comp.equilibrio, .10]].map(c =>
       `<div><div class="comp-l"><span>${c[0]} <span class="muted">(peso ${Math.round(c[2] * 100)}%)</span></span><span class="mono">${pct(c[1])}</span></div><div class="barra"><i style="width:${clamp(c[1], 0, 1) * 100}%;background:${c[1] >= .7 ? C.good : c[1] >= .45 ? C.warn : C.danger}"></i></div></div>`).join('');
@@ -639,9 +693,9 @@
     for (let k = 5; k >= 0; k--) {
       const y = top + (5 - k) * rowH, wm = r.pir.M[k] / mx * (half - 50), wf = r.pir.F[k] / mx * (half - 50);
       s += `<rect x="${cx - 48 - wm}" y="${y}" width="${wm}" height="${rowH - 6}" rx="3" fill="${C.macho}" opacity=".85"/><rect x="${cx + 48}" y="${y}" width="${wf}" height="${rowH - 6}" rx="3" fill="${C.femea}" opacity=".85"/>
-        <text x="${cx}" y="${y + 16}" text-anchor="middle" fill="#b9c6bb" font-size="11">${cl[k]}</text>
-        <text x="${cx - 52 - wm}" y="${y + 16}" text-anchor="end" fill="#8a9a8e" font-size="10" font-family="JetBrains Mono, monospace">${fmt(r.pir.M[k])}</text>
-        <text x="${cx + 52 + wf}" y="${y + 16}" fill="#8a9a8e" font-size="10" font-family="JetBrains Mono, monospace">${fmt(r.pir.F[k])}</text>`;
+        <text x="${cx}" y="${y + 16}" text-anchor="middle" fill="#4d4b45" font-size="11">${cl[k]}</text>
+        <text x="${cx - 52 - wm}" y="${y + 16}" text-anchor="end" fill="#8c8a81" font-size="10" font-family="JetBrains Mono, monospace">${fmt(r.pir.M[k])}</text>
+        <text x="${cx + 52 + wf}" y="${y + 16}" fill="#8c8a81" font-size="10" font-family="JetBrains Mono, monospace">${fmt(r.pir.F[k])}</text>`;
     }
     s += '</svg>';
     $('piramide').innerHTML = r.N ? s : '<p class="muted">Nenhum coelho vivo neste momento.</p>';
@@ -667,17 +721,17 @@
     const corF = (F) => F >= 0.4 ? C.danger : F >= 0.2 ? C.warn : C.good;
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Árvore genealógica dos primeiros descendentes">`;
     const nomes = ['Fundadores', 'Geração 1 (filhos)', 'Geração 2 (netos)', 'Geração 3'];
-    rows.forEach((row, k) => { s += `<text x="8" y="${34 + k * rowH - 20}" fill="#8a9a8e" font-size="11">${nomes[k]}${row.total ? ` · mostrando ${row.length} de ${row.total} registrados` : ''}</text>`; });
+    rows.forEach((row, k) => { s += `<text x="8" y="${34 + k * rowH - 20}" fill="#8c8a81" font-size="11">${nomes[k]}${row.total ? ` · mostrando ${row.length} de ${row.total} registrados` : ''}</text>`; });
     gen.forEach(g => {
       if (!pos.has(g.id)) return;
       const [x, y] = pos.get(g.id);
-      [g.mae, g.pai].forEach(pid => { if (pos.has(pid)) { const [px, py] = pos.get(pid); s += `<path class="glink" data-a="${pid}" data-b="${g.id}" d="M${px.toFixed(1)},${py + 9} C${px.toFixed(1)},${(py + y) / 2} ${x.toFixed(1)},${(py + y) / 2} ${x.toFixed(1)},${y - 9}" stroke="${pid === g.mae ? 'rgba(231,163,192,.35)' : 'rgba(124,196,224,.35)'}" fill="none"/>`; } });
+      [g.mae, g.pai].forEach(pid => { if (pos.has(pid)) { const [px, py] = pos.get(pid); s += `<path class="glink" data-a="${pid}" data-b="${g.id}" d="M${px.toFixed(1)},${py + 9} C${px.toFixed(1)},${(py + y) / 2} ${x.toFixed(1)},${(py + y) / 2} ${x.toFixed(1)},${y - 9}" stroke="${pid === g.mae ? 'rgba(201,107,142,.4)' : 'rgba(74,134,184,.4)'}" fill="none"/>`; } });
     });
     gen.forEach(g => {
       if (!pos.has(g.id)) return;
       const [x, y] = pos.get(g.id), rr = g.ger === 0 ? 13 : 8;
       const info = `#${g.id} · ${g.sexo === 'M' ? 'macho' : 'fêmea'} · ${g.ger === 0 ? 'fundador' : 'nascido ' + mesTxt(g.nasc)} · F = ${fmt3(g.F)} · ${g.morte === null ? 'vivo no fim ou não registrado' : 'morreu ' + mesTxt(g.morte)}`;
-      s += `<g class="gnode" data-id="${g.id}" data-info="${esc(info)}"><circle cx="${x.toFixed(1)}" cy="${y}" r="${rr}" fill="${g.sexo === 'M' ? C.macho : C.femea}" stroke="${corF(g.F)}" stroke-width="2.5"/>${g.ger === 0 ? `<text x="${x.toFixed(1)}" y="${y + 4}" text-anchor="middle" font-size="11" fill="#10200f" font-weight="700">${g.sexo === 'M' ? '♂' : '♀'}</text>` : ''}<title>${esc(info)}</title></g>`;
+      s += `<g class="gnode" data-id="${g.id}" data-info="${esc(info)}"><circle cx="${x.toFixed(1)}" cy="${y}" r="${rr}" fill="${g.sexo === 'M' ? C.macho : C.femea}" stroke="${corF(g.F)}" stroke-width="2.5"/>${g.ger === 0 ? `<text x="${x.toFixed(1)}" y="${y + 4}" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">${g.sexo === 'M' ? '♂' : '♀'}</text>` : ''}<title>${esc(info)}</title></g>`;
     });
     s += '</svg>';
     $('genealogia').innerHTML = s + `<p class="hint" id="genInfo">Contorno: F &lt; 0,2 verde · 0,2–0,4 âmbar · ≥ 0,4 vermelho. Linhas rosa: mãe; azuis: pai.</p>`;
@@ -718,7 +772,7 @@
     const desc = ['A grama volta a crescer; brotos e folhas novas. Época principal de reprodução.', 'Crescimento desacelera com o calor; muita alimentação e filhotes crescendo.', 'A grama seca. Mais dependência de arbustos e grama seca; competição aumenta.', 'O período mais difícil: pouca grama verde, frio, reprodução baixa.'];
     $('estacoes4').innerHTML = [0, 1, 2, 3].map(s => {
       const x = regs.find(q => q.est === s);
-      return `<div class="est-card${s === r.est ? ' atual' : ''}"><div class="ic">${EST_IC[s]}</div><b>${EST[s]} · ano ${ano}</b>${desc[s]}<div class="mono" style="margin-top:6px;color:#e8eee5">${x ? `${fmt1(x.chuva)} mm · ${fmt1(x.T)} °C · ${fmt(x.N)} coelhos` : '—'}</div></div>`;
+      return `<div class="est-card${s === r.est ? ' atual' : ''}"><div class="ic">${EST_IC[s]}</div><b>${EST[s]} · ano ${ano}</b>${desc[s]}<div class="mono" style="margin-top:6px;color:var(--text)">${x ? `${fmt1(x.chuva)} mm · ${fmt1(x.T)} °C · ${fmt(x.N)} coelhos` : '—'}</div></div>`;
     }).join('');
   }
   function renderClimaFatos() {
@@ -803,7 +857,7 @@
       { rotulo: 'P25–P75', tipo: 'faixa', lo: b.p25, hi: b.p75, cor: C.pop, opac: .3 },
       { rotulo: 'Mediana', dados: b.p50, cor: C.pop, largura: 2.2 },
       { rotulo: 'Execução original', dados: ORIG.registros.map(r => r.N), cor: C.sky, tracejado: true, largura: 1.3 }] }));
-    const corP = (p) => p >= 0.75 ? 'rgba(230,106,90,.3)' : p >= 0.4 ? 'rgba(232,169,74,.28)' : 'rgba(127,209,138,.25)';
+    const corP = (p) => p >= 0.75 ? '#f6ddd6' : p >= 0.4 ? '#f8ebd2' : '#dcecd9';
     $('tabCen').innerHTML = `<thead><tr><th class="l">Cenário</th><th>P(extinção)</th><th>P(árvore morre)</th><th>N máx (mediana)</th><th>N final: mediana [P5–P95]</th><th>Colapsos</th><th>Vigor da grama final</th><th>Arbustos final</th><th>F final</th><th>Saúde final</th><th></th></tr></thead><tbody>` +
       cen.map(c => `<tr data-id="${c.id}" class="${c.id === cenSel ? 'sel' : ''}"><td class="l">${esc(c.nome)}</td><td><span class="prob" style="background:${corP(c.mc.pExtincao)}">${pct(c.mc.pExtincao)}</span></td><td class="num">${pct(c.mc.pArvoreMorre)}</td><td class="num">${fmt(c.mc.NmaxMed)}</td><td class="num">${fmt(c.mc.NfinalMed)} [${fmt(c.mc.NfinalP5)}–${fmt(c.mc.NfinalP95)}]</td><td class="num">${fmt1(c.mc.colapsosMed)}</td><td class="num">${pct(c.mc.RfinalMed)}</td><td class="num">${pct(c.mc.HsFinalMed)}</td><td class="num">${fmt3(c.mc.FfinalMed)}</td><td class="num">${fmt1(c.mc.saudeMed)}</td><td><button class="btn peq" data-lab="${c.id}" title="Abrir no Laboratório">⚗️</button></td></tr>`).join('') + '</tbody>';
     $('tabCen').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', (e) => {
@@ -838,9 +892,13 @@
       const t = T[k];
       return `<div class="cartao pred-card"><div class="pc-top"><span class="pc-ic">${t.icone}</span><b>${t.nome}</b></div><p>${t.resumo}</p>
         <div class="pc-fatos"><span class="chip">come ~${t.need} coelhos/mês</span><span class="chip">${t.prot >= 0.6 ? 'vegetação protege bem' : t.prot >= 0.4 ? 'vegetação protege um pouco' : 'entra nas tocas'}</span><span class="chip">${repro(t)}</span></div>
-        <button class="btn peq" data-predlab="${k}">⚗️ Testar no Laboratório</button></div>`;
+        <button class="btn pri peq" data-predlab="${k}">▶ Simular com ${t.nome.toLowerCase()}</button></div>`;
     }).join('');
-    $('predCards').querySelectorAll('[data-predlab]').forEach(b => b.addEventListener('click', () => abrirNoLab({ predadores: [{ tipo: b.dataset.predlab, ano: b.dataset.predlab === 'rapina' ? 1 : 3, n: b.dataset.predlab === 'raposa' ? 2 : 4 }] })));
+    $('predCards').querySelectorAll('[data-predlab]').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.predlab;
+      resetLab(); $('lpOn_' + k).checked = true; $('lp_' + k).classList.add('on'); sincronizarCentral();
+      aplicarExperimento(true); setTimeout(() => window.irPagina('geral', 'painel'), 300);
+    }));
     $('tabPredParam').innerHTML = Object.keys(T).map(k => { const t = T[k]; return `<tr><td class="l">${t.icone} ${t.nome}</td><td class="num">${t.need}</td><td class="num">${t.h}</td><td class="num">${t.juv}×</td><td class="num">${pct(t.prot)}</td><td class="num">${pct(t.alt)}</td><td class="l">${repro(t)}</td></tr>`; }).join('');
     // predadores na simulação atual (página Coelhos)
     const tem = RES.parametros.predadores.length > 0;
@@ -853,8 +911,8 @@
     const pc = (D.cenarios || []).filter(c => c.grupo === 'predadores');
     const base = (D.cenarios || []).find(c => c.id === 'base');
     if (!pc.length || !base) { $('tabPred').innerHTML = ''; $('predSub').textContent = 'Resultados pré-calculados indisponíveis: rode "node simular.js" ou use o Laboratório.'; $('predLicao').innerHTML = ''; ['gPredCmp', 'gPredN'].forEach(id => { $(id).innerHTML = ''; }); return; }
-    const corP = (p) => p >= 0.75 ? 'rgba(230,106,90,.3)' : p >= 0.4 ? 'rgba(232,169,74,.28)' : 'rgba(127,209,138,.25)';
-    $('predSub').textContent = `${D.meta.repsCenario} repetições por cenário, ${D.meta.anos} anos. Clique em uma linha para ver o gráfico.`;
+    const corP = (p) => p >= 0.75 ? '#f6ddd6' : p >= 0.4 ? '#f8ebd2' : '#dcecd9';
+    $('predSub').textContent = `${D.meta.repsCenario} repetições por cenário, ${DUR} anos. Clique em uma linha para ver o gráfico.`;
     const linhas = [base].concat(pc);
     $('tabPred').innerHTML = `<thead><tr><th class="l">Cenário</th><th>Chance de os coelhos sumirem</th><th>Coelhos em média</th><th>Pico de coelhos</th><th>Chance de o predador sobreviver</th><th>Pasto no final</th><th></th></tr></thead><tbody>` +
       linhas.map(c => `<tr data-id="${c.id}" class="${c.id === predSel ? 'sel' : ''}"><td class="l">${c.id === 'base' ? '🚫 Sem predadores (original)' : esc(c.nome)}</td><td><span class="prob" style="background:${corP(c.mc.pExtincao)}">${pct(c.mc.pExtincao)}</span></td><td class="num">${fmt(c.mc.NmedioMed)}</td><td class="num">${fmt(c.mc.NmaxMed)}</td><td class="num">${c.mc.pPredSobrevive === null || c.mc.pPredSobrevive === undefined ? '—' : pct(c.mc.pPredSobrevive)}</td><td class="num">${pct(c.mc.RfinalMed)}</td><td>${c.id === 'base' ? '' : `<button class="btn peq" data-lab="${c.id}" title="Abrir no Laboratório">⚗️</button>`}</td></tr>`).join('') + '</tbody>';
@@ -894,18 +952,19 @@
     $('labPred').innerHTML = Object.keys(Eng.PRED_TIPOS).map(k => { const t = Eng.PRED_TIPOS[k]; return `<div class="lp" id="lp_${k}"><label class="lp-t"><input type="checkbox" id="lpOn_${k}"> ${t.icone} ${t.nome}</label>
       <span>Chegam no ano</span><input type="number" id="lpAno_${k}" min="1" max="100" value="${padraoPred[k][0]}">
       <span>Quantos</span><input type="number" id="lpN_${k}" min="1" max="50" value="${padraoPred[k][1]}"></div>`; }).join('');
-    Object.keys(Eng.PRED_TIPOS).forEach(k => $('lpOn_' + k).addEventListener('change', () => $('lp_' + k).classList.toggle('on', $('lpOn_' + k).checked)));
+    Object.keys(Eng.PRED_TIPOS).forEach(k => $('lpOn_' + k).addEventListener('change', () => { $('lp_' + k).classList.toggle('on', $('lpOn_' + k).checked); sincronizarCentral(); }));
+    $('labAnos').addEventListener('input', () => { $('labAnosVal').textContent = $('labAnos').value + ' anos'; });
     Eng.PARAM_META.forEach(m => {
       const inp = $('par_' + m.k);
       inp.addEventListener('input', () => { $('out_' + m.k).textContent = fmtParam(m, +inp.value); inp.closest('.slider').classList.toggle('mod', Math.abs(+inp.value - Eng.PADRAO[m.k]) > 1e-9); });
     });
-    $('labRodar').addEventListener('click', rodarLab);
+    $('labRodar').addEventListener('click', () => { sincronizarCentral(); sincronizarDuracao(+$('labAnos').value); aplicarExperimento(true); });
     $('labReset').addEventListener('click', () => { resetLab(); $('labStatus').textContent = 'Valores originais restaurados (clique em Executar para rodar).'; });
   }
   function fmtParam(m, v) { if (m.k === 'K_referencia') return fmt(v); if (m.k === 'chuva_vies') return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; return fmt2(v) + (m.un && m.un.startsWith('×') ? '×' : ''); }
   function resetLab() {
     Eng.PARAM_META.forEach(m => { const inp = $('par_' + m.k); inp.value = Eng.PADRAO[m.k]; inp.dispatchEvent(new Event('input')); });
-    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labAnos').value = String(DUR);
+    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';
     Object.keys(Eng.PRED_TIPOS).forEach(k => { $('lpOn_' + k).checked = false; $('lp_' + k).classList.remove('on'); });
   }
   function abrirNoLab(p) {
@@ -915,6 +974,7 @@
       else if (k === 'predadores') p[k].forEach(x => { $('lpOn_' + x.tipo).checked = true; $('lp_' + x.tipo).classList.add('on'); $('lpAno_' + x.tipo).value = x.ano; $('lpN_' + x.tipo).value = x.n; });
       else if ($('par_' + k)) { $('par_' + k).value = p[k]; $('par_' + k).dispatchEvent(new Event('input')); }
     });
+    sincronizarCentral();
     window.irPagina('experimentos', 'laboratorio');
     $('labStatus').textContent = 'Parâmetros carregados. Clique em Executar.';
   }
@@ -926,17 +986,13 @@
     p.predadores = Object.keys(Eng.PRED_TIPOS).filter(k => $('lpOn_' + k).checked).map(k => ({ tipo: k, ano: clamp(Math.floor(+$('lpAno_' + k).value || 1), 1, p.anos), n: clamp(Math.floor(+$('lpN_' + k).value || 1), 1, 50) }));
     return p;
   }
-  function rodarLab() {
+  function rodarLab(clicou) {
     const p = lerLab(), reps = +$('labReps').value;
     carregando(true, `Simulando ${p.anos * 12} meses…`);
     const pausa = () => new Promise(r => setTimeout(r, 15));
     setTimeout(async () => {
       try {
-        if (p.anos !== DUR) {   // compara com a simulação original da mesma duração
-          await carregarDuracao(p.anos); usarDados(p.anos);
-          document.querySelectorAll('.duracao button').forEach(x => x.classList.toggle('on', +x.dataset.anos === p.anos));
-          carregando(true, `Simulando ${p.anos * 12} meses…`); await pausa();
-        }
+        if (p.anos !== DUR) { prepararDuracao(p.anos); sincronizarDuracao(p.anos); }   // compara com a original da mesma duração
         const t0 = performance.now();
         const res = Eng.simular(p);
         labMC = null;
@@ -955,6 +1011,7 @@
         atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
         const dt = Math.round(performance.now() - t0);
         $('labStatus').textContent = `Concluído em ${dt} ms. Toda a página agora mostra este experimento.`;
+        $('centralStatus').textContent = `Experimento simulado (${p.anos} anos, ${dt} ms). A página inteira mostra este resultado.`;
         renderLabResultado(p);
       } catch (e) {
         console.error(e); $('labStatus').textContent = 'Erro ao executar: ' + e.message;
@@ -1024,7 +1081,7 @@
     $('popFaixa').addEventListener('change', () => { const v = $('popFaixa').value; if (!v) G.gPop.setRange(null); else { const [a, b] = v.split('-').map(Number); G.gPop.setRange(a, b); } $('popFaixa').value = v; });
     $('vistaGeral').addEventListener('click', () => { vista = 'geral'; $('vistaGeral').setAttribute('aria-pressed', 'true'); $('vistaDetalhe').setAttribute('aria-pressed', 'false'); renderIlha(); });
     $('vistaDetalhe').addEventListener('click', () => { vista = 'detalhe'; $('vistaDetalhe').setAttribute('aria-pressed', 'true'); $('vistaGeral').setAttribute('aria-pressed', 'false'); renderIlha(); });
-    $('voltarOriginal').addEventListener('click', () => { RES = ORIG; labMC = null; atualizarTimebarOpcoes(); renderTudo(); irPara(IDX); $('labResultado').innerHTML = ''; $('labStatus').textContent = 'De volta à simulação original.'; });
+    $('voltarOriginal').addEventListener('click', () => { resetLab(); sincronizarCentral(); prepararDuracao(DUR); RES = ORIG; labMC = null; $('centralStatus').textContent = 'Mostrando a simulação original.'; atualizarTimebarOpcoes(); renderTudo(); irPara(IDX); $('labResultado').innerHTML = ''; $('labStatus').textContent = 'De volta à simulação original.'; });
     $('heroiPlay').addEventListener('click', () => { window.irPagina('geral', 'painel'); irPara(0); setTimeout(tocar, 600); });
     const nomeBase = () => RES === ORIG ? 'ilha40_original' : 'ilha40_laboratorio';
     $('expCsv').addEventListener('click', () => baixar(nomeBase() + '_sazonal.csv', '﻿' + Eng.csvSazonal(RES), 'text/csv;charset=utf-8'));

@@ -268,17 +268,17 @@
       // cursor (momento selecionado)
       if (this.o.cursor && this.cursorI !== null && this.cursorI >= g.i0 && this.cursorI <= g.i1) {
         const x = Math.round(this._x(g, this.cursorI)) + .5;
-        c.strokeStyle = css('--sand'); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
+        c.strokeStyle = css('--cursor'); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
         S.filter(s => (s.tipo === 'linha' || !s.tipo) && !s.semPonto).forEach(s => {
           const v = s.dados[this.cursorI]; if (v == null) return;
-          c.fillStyle = s.cor; c.strokeStyle = css('--bg'); c.lineWidth = 2;
+          c.fillStyle = s.cor; c.strokeStyle = '#ffffff'; c.lineWidth = 2;
           c.beginPath(); c.arc(x, this._y(g, d, v), 4.5, 0, 7); c.fill(); c.stroke();
         });
       }
       // hover
       if (this.hoverI !== null && this.hoverI !== this.cursorI) {
         const x = Math.round(this._x(g, this.hoverI)) + .5;
-        c.strokeStyle = alpha('#ffffff', .25); c.lineWidth = 1; c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
+        c.strokeStyle = 'rgba(28,28,26,.25)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
       }
       // seleção de zoom
       if (this.drag && this.drag.ativo) {

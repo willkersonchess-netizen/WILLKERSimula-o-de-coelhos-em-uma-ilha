@@ -1,57 +1,60 @@
-======================================================================
- ILHA 40 - ANALISE ESTATISTICA COMPLEMENTAR
-======================================================================
- Motor v2.0.0 | semente 42 | gerado em 2026-11-08T07:29:08.868Z
+==========================================================================
+ ILHA - ANALISE ESTATISTICA COMPLEMENTAR (50 anos)
+==========================================================================
+ Motor v2.2.0 | semente 42 | gerado em 2026-11-08T12:47:05.482Z
 
 1. RESUMO DA EXECUCAO ORIGINAL
-   Populacao: inicial 2 | maxima 6704 | final 0
-   Nascimentos 37509 | Mortes 37511 | Colapsos 6 | Crises alimentares 5
-   Extinta: sim
+   Populacao: inicial 2 | maxima 7397 (ano 5, Verao) | final 87
+   Nascimentos 44308 | Mortes 44223 | Colapsos 7 | Extinta: nao
 
 2. CICLOS POPULACIONAIS (autocorrelacao de log(N+1), registros sazonais)
-   Periodicidade dominante: ~55 estacoes (~13.8 anos), autocorrelacao 0.66.
+   Periodicidade dominante: ~92 estacoes (~23.0 anos), autocorrelacao 0.70.
    Interpretacao: tempo medio entre explosoes, ditado pela recuperacao da vegetacao.
-   Autocorrelacao com 1 ano de defasagem: 0.83
 
 3. CHUVA DA PRIMAVERA x CRESCIMENTO DA POPULACAO NO ANO
-   Anos com >= 10 coelhos no inicio: 34
-   Correlacao (multiplicador da chuva x log da taxa de crescimento): 0.28
-   Uma correlacao fraca indica que a chuva sozinha nao explica o crescimento:
-   a degradacao acumulada da vegetacao e a densidade pesam mais.
+   Anos com >= 10 coelhos no inicio: 47
+   Correlacao (chuva da primavera x log da taxa de crescimento): 0.08
+   Correlacao fraca = a chuva sozinha nao explica o crescimento; a degradacao
+   acumulada da vegetacao e a densidade pesam mais.
 
 4. DEFASAGEM ENTRE PICO POPULACIONAL E DEGRADACAO
-   Pico populacional: registro 18 (ano 5, Verao)
-   Raizes da grama < 70%: registro 19 -> +1 estacoes em relacao ao pico
-   Arbustos < 50%: registro 20 -> +2 estacoes em relacao ao pico
+   Pico populacional: registro 18
+   Raizes da grama < 70%: registro 19 (+1 estacoes em relacao ao pico)
+   Arbustos < 50%: registro 20 (+2 estacoes em relacao ao pico)
 
-5. MORTES POR ESTACAO DO ANO (soma dos 40 anos)
-   Primavera  mortes    14748 ( 39.3%)   nascimentos    21996
-   Verao      mortes    12424 ( 33.1%)   nascimentos    13203
-   Outono     mortes     5087 ( 13.6%)   nascimentos     1443
-   Inverno    mortes     5252 ( 14.0%)   nascimentos      867
-   Causas (total): endogamia 12921, basal 7555, neonatal 7147, fome 5758, doenca 2433, desidratacao 1562, idade 126, clima 9, surto 0
+5. MORTES POR ESTACAO DO ANO
+   Primavera  mortes    16693 ( 37.7%)   nascimentos    25102
+   Verao      mortes    15466 ( 35.0%)   nascimentos    15923
+   Outono     mortes     6185 ( 14.0%)   nascimentos     1877
+   Inverno    mortes     5879 ( 13.3%)   nascimentos     1406
+   Causas: endogamia 15315, neonatal 9045, basal 8309, fome 6548, doenca 2613, desidratacao 2246, idade 147
 
-6. MONTE CARLO DO CENARIO ORIGINAL (100 repeticoes)
-   Probabilidade de extincao em 40 anos: 69%
-   Probabilidade de a arvore morrer:      0%
-   Populacao maxima (mediana): 6497
-   Populacao final: mediana 0 | P5 0 | P95 327
-   Ano da extincao (quando ocorre): mediana 28.3 | min 1.0 | max 39.7
-   Intervalo aproximado de 95% para P(extincao): 60% a 78%
+6. MONTE CARLO DO CENARIO ORIGINAL (80 repeticoes)
+   Probabilidade de extincao em 50 anos: 74%  (IC 95% aprox.: 64% a 83%)
+   Populacao media (mediana entre repeticoes): 268 | final (mediana): 0
+   Ano da extincao, quando ocorre: mediana 29.5 | min 1.2 | max 48.8
 
-7. CENARIOS (40 repeticoes cada, mesmas sementes)
-   Cenario                             P(ext)   Nfinal  Colapsos   Grama  Arbustos
-   Chuva média (original)                 70%        0      3.35     79%       17%
-   A · Primaveras secas                   92%        0      2.55     86%       18%
-   B · Primaveras chuvosas                52%        0      4.55     63%       16%
-   C · Poucos arbustos                    70%        0      3.48     75%       29%
-   D · Muitos arbustos                    72%        0      4.22     76%       10%
-   E · Recuperação lenta                 100%        0      1.48     90%       13%
-   F · Recuperação rápida                 15%       42      6.43     51%       16%
-   G · Depressão endogâmica forte         68%        0      1.48     89%       26%
-   H · Depressão endogâmica fraca         75%        0      3.98     77%       18%
-   Dois machos                           100%        0      0.00    100%      126%
-   Casal de filhotes (1 mês)              88%        0      1.58     91%       69%
-   Fêmea infértil                        100%        0      0.00    100%      126%
+7. CENARIOS (25 repeticoes cada, mesmas sementes, 50 anos)
+   Cenario                               Grupo         P(ext)  N medio  Colapsos   Grama Pred.vivo
+   Chuva média (original)                ambiente         72%      255      3.84     83%         -
+   A · Primaveras secas                  ambiente         96%      201      2.72     96%         -
+   B · Primaveras chuvosas               ambiente         48%      309      5.08     68%         -
+   C · Poucos arbustos                   ambiente         80%      200      3.24     88%         -
+   D · Muitos arbustos                   ambiente         84%      317      4.48     85%         -
+   E · Recuperação lenta                 ambiente        100%      148      1.44     95%         -
+   F · Recuperação rápida                ambiente         16%      394      7.72     55%         -
+   G · Depressão endogâmica forte        ambiente         88%      216      1.40     96%         -
+   H · Depressão endogâmica fraca        ambiente         68%      248      4.28     69%         -
+   I · Ilha maior (400 ha)               ambiente        100%      274      1.52    100%         -
+   Gatos ferais (4 no ano 3)             predadores       80%       12      1.04     91%       60%
+   Raposas (casal no ano 3)              predadores       84%      258      3.56     87%        0%
+   Arminhos (4 no ano 3)                 predadores       76%      264      3.88     83%        0%
+   Aves de rapina (desde o ano 1)        predadores        8%      269      2.80    100%       92%
+   Gatos junto com os coelhos (ano 1)    predadores       88%        8      0.72     97%       60%
+   Gatos + aves de rapina                predadores       68%       11      0.44    100%       80%
+   Gatos numa ilha maior (400 ha)        predadores       16%       40      0.36    100%       96%
+   Dois machos                           fundadores      100%        0      0.00    100%         -
+   Casal de filhotes (1 mês)             fundadores       84%      225      2.72     91%         -
+   Fêmea infértil                        fundadores      100%        0      0.00    100%         -
 
-======================================================================
+==========================================================================
