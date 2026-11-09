@@ -25,7 +25,8 @@
   const COR_CAUSA = { fome: '#c48720', desidratacao: '#6fa8d6', doenca: '#8f73c4', surto: '#c4513b', idade: '#a3a094', neonatal: '#d8d2bf', endogamia: '#c96b8e', clima: '#3b7ea1', basal: '#5c6b5c', predacao: '#e07a3f' };
   const NOME_CAUSA = { fome: 'Fome', desidratacao: 'Desidratação', doenca: 'Doença endêmica', surto: 'Surto', idade: 'Idade', neonatal: 'Ninho (neonatal)', endogamia: 'Endogamia (ninho)', clima: 'Calor/frio', basal: 'Basal (acidentes, parasitas)', predacao: 'Predadores' };
   const COR_PRED = { gato: '#e07a3f', raposa: '#c4513b', arminho: '#a8873a', rapina: '#7b5fb0' };
-  const CHUVA_REF = [210, 90, 150, 130];
+  // chuva média de referência por estação, do regime de estações da simulação atual
+  const chuvaRef = () => (RES && RES.regime ? RES.regime.chuva : [210, 90, 150, 130]);
 
   let D = null, BASE100 = null, ORIG = null, RES = null, IDX = 0, timer = null, vista = 'geral', cenSel = 'A', predSel = 'P1', labMC = null, DUR = 50;
   let cumNasc = [], cumMort = [];
@@ -134,8 +135,12 @@
       marcarPendente();
     }));
     seg('ccClima', 'chuva_vies'); seg('ccIlha', 'area_ha');
+    document.querySelectorAll('#ccEst button').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('#ccEst button').forEach(x => x.classList.toggle('on', x === b));
+      $('labEstacoes').value = b.dataset.v; marcarPendente();
+    }));
     $('ccSimular').addEventListener('click', () => aplicarExperimento(true));
-    $('ccReset').addEventListener('click', () => { resetLab(); sincronizarCentral(); aplicarExperimento(true); });
+    $('ccReset').addEventListener('click', () => { resetLab(); sincronizarCentral(); aplicarExperimento(false); });
   }
   function marcarPendente() { $('centralStatus').textContent = 'Alterações prontas: clique em Simular.'; $('ccSimular').classList.add('pulsa'); }
   // Reflete na central o que está no Laboratório
@@ -143,12 +148,17 @@
     Object.keys(Eng.PRED_TIPOS).forEach(t => { const b = document.querySelector(`#ccPred button[data-t="${t}"]`); if (b) b.setAttribute('aria-pressed', $('lpOn_' + t).checked); });
     const marca = (id, v) => document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', Math.abs(+b.dataset.v - v) < 1e-9));
     marca('ccClima', +$('par_chuva_vies').value); marca('ccIlha', +$('par_area_ha').value);
+    document.querySelectorAll('#ccEst button').forEach(b => b.classList.toggle('on', b.dataset.v === $('labEstacoes').value));
   }
-  function ehPadrao(p) {
-    return Eng.PARAM_META.every(m => Math.abs(p[m.k] - Eng.PADRAO[m.k]) < 1e-9) && p.fundadores === 'par_adulto' && p.semente === 42 && p.surtos_doenca && !p.predadores.length;
+  // ignorarSemente: mesmos parâmetros do original, com outra sorte (vale o Monte Carlo pré-calculado)
+  function ehPadrao(p, ignorarSemente) {
+    return Eng.PARAM_META.every(m => Math.abs(p[m.k] - Eng.PADRAO[m.k]) < 1e-9) && p.fundadores === 'par_adulto' && (ignorarSemente || p.semente === 42) && p.surtos_doenca && !p.predadores.length && p.estacoes === Eng.PADRAO.estacoes;
   }
   // Mostra a simulação original recortada (instantâneo) ou roda o motor com os parâmetros escolhidos
-  function aplicarExperimento(clicou) {
+  // novaSorte: cada simulação pedida pela Central usa uma semente aleatória nova (a menos que a sorte esteja fixada)
+  function aplicarExperimento(novaSorte) {
+    if (novaSorte && $('ccSorteNova').checked) $('labSemente').value = 1 + Math.floor(Math.random() * 999998);
+    const clicou = novaSorte;
     const p = lerLab();
     $('ccSimular').classList.remove('pulsa');
     if (ehPadrao(p) && +$('labReps').value === 1) {
@@ -188,7 +198,7 @@
   }
 
   function renderHeroi() {
-    const S = RES.resumo, mc = RES === ORIG ? D.mcBase : labMC;
+    const S = RES.resumo, mc = labMC || (RES === ORIG || ehPadrao(Object.assign(lerLab(), { anos: RES.parametros.anos }), true) ? D.mcBase : null);
     const st = [
       { v: fmt(S.Nmax), l: 'maior população (' + quando(S.iMax) + ')' },
       { v: S.extinta ? 'Extinta' : fmt(S.Nfinal), l: S.extinta ? 'população final: extinção ' + mesTxt(S.mesExtincao) : 'coelhos ao final dos ' + RES.parametros.anos + ' anos' },
@@ -218,7 +228,7 @@
         { rotulo: 'População de coelhos', dados: col('N'), cor: C.pop, largura: 2.4, area: true }
       ],
       sombra: { a: 1, b: 0, cor: 'rgba(196,81,59,.22)' },
-      refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: 'Referência inicial: ' + fmt(P.K_referencia) + ' (primavera média, ilha intacta)', rotulo: 'Capacidade de referência (premissa)', incluir: true }],
+      refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: 'Referência inicial: ' + fmt(P.K_referencia) + ' (estação chuvosa média, ilha intacta)', rotulo: 'Capacidade de referência (premissa)', incluir: true }],
       marcas,
       tooltip: (i) => {
         const r = R[i];
@@ -300,11 +310,13 @@
       { rotulo: 'População (N)', dados: col('N'), cor: 'rgba(28,28,26,.25)', largura: 1.2 }] }));
 
     // Clima
-    const AN = RES.anual;
+    const AN = RES.anual, pr = RES.regime ? RES.regime.principal : 0;
+    $('tChuvaPrim').textContent = `Chuva do ${EST[pr].toLowerCase()} (estação chuvosa principal) por ano`.replace('do primavera', 'da primavera');
+    $('sChuvaPrim').textContent = `1,0 = chuva média (${Math.round(chuvaRef()[pr])} mm). Barras ocre: anos secos (< 0,9); azuis: chuvosos (> 1,1). Regime: ${RES.regime ? RES.regime.nome : ''}.`;
     grafico('gChuvaPrim', baseAno({ yMin: 0, yMax: 1.4, fmtY: (v) => v.toFixed(1).replace('.', ','), refs: [{ y: 1, cor: 'rgba(28,28,26,.3)', texto: 'média' }], series: [
-      { rotulo: 'Multiplicador da chuva de primavera', tipo: 'barra', dados: AN.map(a => a.multPrim), cor: C.sky, corFn: (v) => v < 0.9 ? C.dry : v > 1.1 ? C.sea : '#b9b4a3' }],
-      tooltip: (i) => `<div class="tt-t">Ano ${i + 1}</div><div class="tt-r"><span>Primavera</span><b>${pct(AN[i].multPrim)} da média</b></div><div class="tt-r"><span>Chuva na primavera</span><b>${fmt1(AN[i].chuvaPrim)} mm</b></div><div class="tt-r"><span>População no fim do ano</span><b>${fmt(AN[i].Nfim)}</b></div>` }));
-    const refAno = CHUVA_REF.reduce((a, b) => a + b, 0) * (P.chuva_mult || 1);
+      { rotulo: 'Multiplicador da chuva da estação chuvosa', tipo: 'barra', dados: AN.map(a => a.multPrim), cor: C.sky, corFn: (v) => v < 0.9 ? C.dry : v > 1.1 ? C.sea : '#b9b4a3' }],
+      tooltip: (i) => `<div class="tt-t">Ano ${i + 1}</div><div class="tt-r"><span>Estação chuvosa</span><b>${pct(AN[i].multPrim)} da média</b></div><div class="tt-r"><span>Chuva nela</span><b>${fmt1(AN[i].chuvaPrim)} mm</b></div><div class="tt-r"><span>População no fim do ano</span><b>${fmt(AN[i].Nfim)}</b></div>` }));
+    const refAno = chuvaRef().reduce((a, b) => a + b, 0);
     grafico('gChuvaAno', baseAno({ rotuloY: 'mm/ano', refs: [{ y: refAno, cor: 'rgba(28,28,26,.3)', texto: 'referência' }], series: [{ rotulo: 'Chuva no ano', tipo: 'barra', dados: AN.map(a => a.chuva), cor: C.sea }], fmtV: (v) => fmt1(v) + ' mm' }));
     grafico('gTemp', baseSaz({ rotuloY: '°C', yMin: null, series: [{ rotulo: 'Temperatura média da estação', dados: col(null, r => r.inicial ? null : r.T), cor: C.warn }], fmtV: (v) => fmt1(v) + ' °C' }));
     grafico('gUmid', baseSaz({ yMin: 0, yMax: 1.1, fmtY: (v) => v.toFixed(1).replace('.', ','), series: [
@@ -319,7 +331,7 @@
       sombra: { a: 1, b: 0, cor: 'rgba(196,81,59,.22)' },
       refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: 'premissa: ' + fmt(P.K_referencia) }] }));
     grafico('gCapPrim', baseAno({ rotuloY: 'coelhos', refs: [{ y: P.K_referencia, cor: 'rgba(28,28,26,.35)', texto: fmt(P.K_referencia) }], series: [
-      { rotulo: 'Capacidade da primavera', tipo: 'barra', dados: AN.map(a => a.Kprim), cor: C.grass2 },
+      { rotulo: 'Capacidade da estação chuvosa', tipo: 'barra', dados: AN.map(a => a.Kprim), cor: C.grass2 },
       { rotulo: 'Capacidade sustentável', tipo: 'barra', dados: AN.map(a => a.Ksust), cor: C.good }] }));
     grafico('gAlim', baseSaz({ yMin: 0, yMax: 1.15, fmtY: (v) => Math.round(v * 100) + '%', refs: [{ y: 1, cor: 'rgba(28,28,26,.25)' }, { y: .7, cor: 'rgba(230,106,90,.6)', texto: 'crise alimentar (< 70%)' }], series: [
       { rotulo: 'Índice alimentar (média da estação)', dados: col(null, r => r.N > 0 || r.nasc > 0 ? r.indAlim : null), cor: C.warn, area: true }], fmtV: pct }));
@@ -431,7 +443,7 @@
     const R = RES.registros, r = R[IDX], p = R[Math.max(0, IDX - 1)], r0 = R[0];
     const dN = IDX > 0 ? delta(r.N, p.N) : null;
     const chuvaAno = R.filter(x => !x.inicial && x.ano === r.ano && x.est <= r.est).reduce((a, x) => a + x.chuva, 0);
-    const refAte = CHUVA_REF.slice(0, r.est + 1).reduce((a, b) => a + b, 0);
+    const refAte = chuvaRef().slice(0, r.est + 1).reduce((a, b) => a + b, 0);
     const grama = r.Gg + r.Gd, grama0 = r0.Gg + r0.Gd;
     const arvEstado = !r.arvViva ? 'Morta' : r.arvCasca < 0.5 ? 'Anelada' : r.arvSaude < 0.6 ? 'Estressada' : 'Saudável';
     const html = [
@@ -579,7 +591,7 @@
       }
     });
     // nuvens / chuva / calor
-    const ref = CHUVA_REF[r.est];
+    const ref = chuvaRef()[r.est];
     if (IDX > 0 && r.chuva > ref * 1.15) {
       s += `<g opacity=".85"><ellipse cx="120" cy="70" rx="42" ry="17" fill="#d6dde3"/><ellipse cx="150" cy="60" rx="30" ry="18" fill="#e3e9ee"/><ellipse cx="96" cy="76" rx="24" ry="12" fill="#c7d0d8"/>${[0, 1, 2, 3, 4, 5].map(k => `<path d="M${92 + k * 11},92 l-5,14" stroke="#9fd0ea" stroke-width="2" stroke-linecap="round"/>`).join('')}</g>`;
     } else if (IDX > 0 && r.chuva < ref * 0.8) {
@@ -636,7 +648,7 @@
     const L = [];
     const add = (nivel, ic, txt, vars) => L.push({ nivel, ic, txt, vars });
     if (IDX === 0) {
-      add('info', '🏝️', `Dois coelhos adultos (um macho e uma fêmea, não aparentados) chegam a uma ilha intacta. A primeira primavera tem capacidade estimada para ${fmt(r.K)} coelhos.`, ['condição inicial']);
+      add('info', '🏝️', `Dois coelhos adultos (um macho e uma fêmea, não aparentados) chegam a uma ilha intacta. A primeira estação tem capacidade estimada para ${fmt(r.K)} coelhos.`, ['condição inicial']);
       add('info', '🧬', 'Todos os coelhos que viverem aqui descenderão deste casal. Já na segunda geração, cruzamentos entre irmãos produzirão filhotes com F ≈ 0,25.', ['genética', 'fundadores']);
       mostrarInsights(L); return;
     }
@@ -654,7 +666,7 @@
     if (p && r.R > p.R + 0.04) add('bom', '🌱', `As raízes da grama estão se recuperando (vigor ${pct(p.R)} → ${pct(r.R)}).`, ['regeneração', 'banco de sementes', 'chuva']);
     if (r.arbCons > r.arbCresc * 3 && r.arbCons > 2) add('alerta', '🌿', 'A regeneração dos arbustos não está acompanhando o consumo de folhas e brotos.', ['arbustos', 'ramoneio']);
     if (r.arbMort > 20) add('mau', '🪓', `${fmt(Math.round(r.arbMort))} kg/ha de estrutura de arbustos morreram nesta estação, sobretudo por descascamento.`, ['arbustos', 'fome']);
-    const ref = CHUVA_REF[r.est];
+    const ref = chuvaRef()[r.est];
     if (r.est <= 1 && r.chuva > ref * 1.1 && r.R < 0.5) add('alerta', '🌧️', `Apesar da chuva acima da média (${pct(r.chuva / ref)}), a vegetação não se recuperou o suficiente por causa da degradação anterior (vigor das raízes ${pct(r.R)}).`, ['chuva', 'degradação', 'efeito atrasado']);
     else if (r.chuva < ref * 0.75) add('alerta', '☀️', `Estação seca: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva', 'umidade do solo']);
     else if (r.chuva > ref * 1.25) add('info', '🌧️', `Estação chuvosa: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva']);
@@ -769,7 +781,7 @@
   function renderEstacoes4() {
     const r = RES.registros[IDX];
     const ano = r.ano, regs = RES.registros.filter(x => x.ano === ano && !x.inicial);
-    const desc = ['A grama volta a crescer; brotos e folhas novas. Época principal de reprodução.', 'Crescimento desacelera com o calor; muita alimentação e filhotes crescendo.', 'A grama seca. Mais dependência de arbustos e grama seca; competição aumenta.', 'O período mais difícil: pouca grama verde, frio, reprodução baixa.'];
+    const desc = (RES.regime && RES.regime.desc) || ['', '', '', ''];
     $('estacoes4').innerHTML = [0, 1, 2, 3].map(s => {
       const x = regs.find(q => q.est === s);
       return `<div class="est-card${s === r.est ? ' atual' : ''}"><div class="ic">${EST_IC[s]}</div><b>${EST[s]} · ano ${ano}</b>${desc[s]}<div class="mono" style="margin-top:6px;color:var(--text)">${x ? `${fmt1(x.chuva)} mm · ${fmt1(x.T)} °C · ${fmt(x.N)} coelhos` : '—'}</div></div>`;
@@ -784,10 +796,10 @@
     let calor = 0, temp = 0, frio = 0;
     RES.registros.forEach(r => (r.eventosClima || []).forEach(e => { if (e.tipo === 'onda_calor') calor++; if (e.tipo === 'tempestade') temp++; if (e.tipo === 'frio_extremo') frio++; }));
     $('climaFatos').innerHTML = `<div class="grid g4">
-      <div><div class="muted small">Primavera mais chuvosa</div><div class="mono" style="font-size:1.2rem">Ano ${mx.ano} · ${pct(mx.multPrim)}</div></div>
-      <div><div class="muted small">Primavera mais seca</div><div class="mono" style="font-size:1.2rem">Ano ${mn.ano} · ${pct(mn.multPrim)}</div></div>
-      <div><div class="muted small">Maior sequência de primaveras secas</div><div class="mono" style="font-size:1.2rem">${sS ? sS + ' ano(s): ' + (iS + 1) + '–' + (iS + sS) : 'nenhuma'}</div></div>
-      <div><div class="muted small">Maior sequência de primaveras chuvosas</div><div class="mono" style="font-size:1.2rem">${sC ? sC + ' ano(s): ' + (iC + 1) + '–' + (iC + sC) : 'nenhuma'}</div></div>
+      <div><div class="muted small">Estação chuvosa mais farta</div><div class="mono" style="font-size:1.2rem">Ano ${mx.ano} · ${pct(mx.multPrim)}</div></div>
+      <div><div class="muted small">Estação chuvosa mais fraca</div><div class="mono" style="font-size:1.2rem">Ano ${mn.ano} · ${pct(mn.multPrim)}</div></div>
+      <div><div class="muted small">Maior sequência de anos secos</div><div class="mono" style="font-size:1.2rem">${sS ? sS + ' ano(s): ' + (iS + 1) + '–' + (iS + sS) : 'nenhuma'}</div></div>
+      <div><div class="muted small">Maior sequência de anos chuvosos</div><div class="mono" style="font-size:1.2rem">${sC ? sC + ' ano(s): ' + (iC + 1) + '–' + (iC + sC) : 'nenhuma'}</div></div>
       <div><div class="muted small">Ondas de calor</div><div class="mono" style="font-size:1.2rem">${calor}</div></div>
       <div><div class="muted small">Tempestades intensas</div><div class="mono" style="font-size:1.2rem">${temp}</div></div>
       <div><div class="muted small">Episódios de frio extremo</div><div class="mono" style="font-size:1.2rem">${frio}</div></div>
@@ -806,7 +818,7 @@
     $('tabPop').innerHTML = `<thead><tr><th>Ano</th><th class="l">Estação</th><th>População</th><th>Nascimentos</th><th>Mortes</th><th>Sobrevivência</th><th>Fêmeas reprod.</th><th>Imaturos</th><th>Adultos</th><th>Índice alim.</th><th>Capacidade</th></tr></thead><tbody>` +
       R.map(r => `<tr data-i="${r.i}"><td>${r.inicial ? '—' : r.ano}</td><td class="l">${r.inicial ? 'Início' : EST_IC[r.est] + ' ' + EST[r.est]}</td><td class="num">${fmt(r.N)}</td><td class="num">${fmt(r.nasc)}</td><td class="num">${fmt(r.mortes)}</td><td class="num">${pct(r.sobrev)}</td><td class="num">${fmt(r.femRep)}</td><td class="num">${fmt(r.filhotes)}</td><td class="num">${fmt(r.adultos)}</td><td class="num">${r.inicial ? '—' : pct(r.indAlim)}</td><td class="num">${fmt(r.K)}</td></tr>`).join('') + '</tbody>';
     $('tabPop').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => irPara(+tr.dataset.i)));
-    $('tabAno').innerHTML = `<thead><tr><th>Ano</th><th>Chuva (mm)</th><th>Primavera</th><th>Grama média (kg/ha)</th><th>Vigor raízes</th><th>Arbustos (kg/ha)</th><th>Árvore</th><th>Solo</th><th>Erosão (t/ha)</th><th>Alimento</th><th>K primavera</th><th>K sustentável</th><th>N máx</th><th>F</th><th>He</th><th>Ne (harm.)</th><th>Gerações</th></tr></thead><tbody>` +
+    $('tabAno').innerHTML = `<thead><tr><th>Ano</th><th>Chuva (mm)</th><th>Estação chuvosa</th><th>Grama média (kg/ha)</th><th>Vigor raízes</th><th>Arbustos (kg/ha)</th><th>Árvore</th><th>Solo</th><th>Erosão (t/ha)</th><th>Alimento</th><th>K primavera</th><th>K sustentável</th><th>N máx</th><th>F</th><th>He</th><th>Ne (harm.)</th><th>Gerações</th></tr></thead><tbody>` +
       RES.anual.map(a => `<tr data-i="${(a.ano - 1) * 4 + 1}"><td>${a.ano}</td><td class="num">${fmt(Math.round(a.chuva))}</td><td class="num">${pct(a.multPrim)}</td><td class="num">${fmt(Math.round(a.gramaMedia))}</td><td class="num">${pct(a.R)}</td><td class="num">${fmt(Math.round(a.arbustos))}</td><td class="num">${a.arvViva ? pct(a.arvore) : 'morta'}</td><td class="num">${pct(a.solo)}</td><td class="num">${fmt1(a.erosao)}</td><td class="num">${pct(a.alimento)}</td><td class="num">${fmt(a.Kprim)}</td><td class="num">${fmt(a.Ksust)}</td><td class="num">${fmt(a.Nmax)}</td><td class="num">${fmt3(a.F)}</td><td class="num">${pct(a.He)}</td><td class="num">${fmt1(a.Ne)}</td><td class="num">${fmt(a.ger)}</td></tr>`).join('') + '</tbody>';
     $('tabAno').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => irPara(+tr.dataset.i)));
   }
@@ -822,10 +834,10 @@
     p.push(`A ilha recebeu ${S.Nini} coelhos e, ${eMax.ano <= 6 ? 'em poucos anos' : 'ao longo de ' + eMax.ano + ' anos'}, a população chegou a <b>${fmt(S.Nmax)}</b> ${quando(S.iMax)}, ${S.Nmax > P.K_referencia ? 'acima' : 'abaixo'} da capacidade de referência de ${fmt(P.K_referencia)}. No total nasceram ${fmt(S.nasc)} coelhos e morreram ${fmt(S.mortes)}.`);
     if (eG || eA) p.push(`O crescimento consumiu a base da qual dependia: ${eG ? `as raízes da grama começaram a morrer ${quando(eG.i)}` : 'a grama resistiu'}${eA ? `, e os arbustos, descascados quando faltou grama, caíram abaixo da metade ${quando(eA.i)}` : ''}. ${eC ? eC.texto + ' ' : ''}Houve ${S.crises} crise(s) alimentar(es) e ${S.colapsos} colapso(s) populacional(is).`);
     else p.push(`A vegetação não chegou a ser degradada de forma significativa (vigor mínimo das raízes ${pct(Math.min(...R.map(r => r.R)))}).`);
-    p.push(`${eT ? 'A única árvore morreu ' + quando(eT.i) + '.' : `A única árvore sobreviveu (saúde final ${pct(fim.arvSaude)}).`} O solo perdeu ${fmt1(R[0].prof - fim.prof)} cm por erosão (${fmt(Math.round(fim.erosaoAcum))} t/ha) e a capacidade de suporte da primavera passou de ${fmt(RES.anual[0].Kprim)} para ${fmt(RES.anual[RES.anual.length - 1].Kprim)} coelhos.`);
+    p.push(`${eT ? 'A única árvore morreu ' + quando(eT.i) + '.' : `A única árvore sobreviveu (saúde final ${pct(fim.arvSaude)}).`} O solo perdeu ${fmt1(R[0].prof - fim.prof)} cm por erosão (${fmt(Math.round(fim.erosaoAcum))} t/ha) e a capacidade de suporte da estação chuvosa passou de ${fmt(RES.anual[0].Kprim)} para ${fmt(RES.anual[RES.anual.length - 1].Kprim)} coelhos.`);
     const ultF = R.filter(r => r.F !== null).pop();
     p.push(`Geneticamente, a origem em dois fundadores impôs F ≈ ${fmt2(ultF ? ultF.F : 0)} e ${pct(S.mcTot.endogamia / Math.max(1, S.mortes))} das mortes foram de filhotes atribuídas à depressão endogâmica. ${S.extinta ? `A população foi <b>extinta</b> ${mesTxt(S.mesExtincao)}, e a vegetação ${fim.R > 0.7 ? 'voltou a se recuperar sem pastejo' : 'começou a se recuperar lentamente'}.` : `Ao final restavam <b>${fmt(S.Nfinal)}</b> coelhos.`}`);
-    if (mc) p.push(`Em ${mc.reps} repetições com outras sequências de chuva e de sorte demográfica, a probabilidade de extinção em ${P.anos} anos foi de <b>${pct(mc.pExtincao)}</b> (população final mediana: ${fmt(mc.NfinalMed)}). Resposta ao objetivo: uma ilha que alimentaria ~${fmt(P.K_referencia)} coelhos numa primavera média <b>${mc.pExtincao >= 0.5 ? 'na maioria das vezes não consegue' : 'muitas vezes consegue, mas a um alto custo ecológico,'}</b> manter por ${P.anos} anos uma população descendente de dois fundadores, porque a primavera não representa o ano: a fome vem no outono e no inverno, depois que a explosão da primavera já degradou a vegetação.`);
+    if (mc) p.push(`Em ${mc.reps} repetições com outras sequências de chuva e de sorte demográfica, a probabilidade de extinção em ${P.anos} anos foi de <b>${pct(mc.pExtincao)}</b> (população final mediana: ${fmt(mc.NfinalMed)}). Resposta ao objetivo: uma ilha que alimentaria ~${fmt(P.K_referencia)} coelhos na estação chuvosa média <b>${mc.pExtincao >= 0.5 ? 'na maioria das vezes não consegue' : 'muitas vezes consegue, mas a um alto custo ecológico,'}</b> manter por ${P.anos} anos uma população descendente de dois fundadores, porque a primavera não representa o ano: a fome vem no outono e no inverno, depois que a explosão da primavera já degradou a vegetação.`);
     $('conclusao').innerHTML = p.map(x => `<p>${x}</p>`).join('');
     const ano = RES.anual;
     $('resumoDl').innerHTML = [
@@ -833,7 +845,7 @@
       ['Nascimentos totais', fmt(S.nasc)], ['Mortes totais', fmt(S.mortes)], ['Taxa de sobrevivência (mortes ÷ todos que existiram)', pct(1 - S.mortes / Math.max(1, S.Nini + S.nasc))],
       ['Grama ao final', fmt(Math.round(S.final.Gg + S.final.Gd)) + ' kg/ha · vigor ' + pct(S.final.R)], ['Arbustos ao final', pct(S.final.Hs / S.final.Hs0) + ' da estrutura inicial'],
       ['Árvore ao final', S.final.arvViva ? 'viva · saúde ' + pct(S.final.arvSaude) : 'morta'], ['Solo ao final', pct(S.final.solo) + ' · ' + fmt1(S.final.prof) + ' cm'],
-      ['Capacidade da primavera: ano 1 → ano 40', fmt(ano[0].Kprim) + ' → ' + fmt(ano[ano.length - 1].Kprim)], ['Capacidade sustentável final', fmt(S.final.Ksust)],
+      ['Capacidade na estação chuvosa: ano 1 → último ano', fmt(ano[0].Kprim) + ' → ' + fmt(ano[ano.length - 1].Kprim)], ['Capacidade sustentável final', fmt(S.final.Ksust)],
       ['Endogamia (último F)', fmt3(ultF ? ultF.F : null)], ['Diversidade genética (He rel.)', pct(ultF ? ultF.He : null)],
       ['Crises alimentares', fmt(S.crises)], ['Colapsos populacionais', fmt(S.colapsos)], ['Eventos ecológicos detectados', fmt(RES.eventos.length)],
       ['Saúde final do ecossistema', Math.round(S.final.saude) + '/100']
@@ -967,13 +979,13 @@
       const inp = $('par_' + m.k);
       inp.addEventListener('input', () => { $('out_' + m.k).textContent = fmtParam(m, +inp.value); inp.closest('.slider').classList.toggle('mod', Math.abs(+inp.value - Eng.PADRAO[m.k]) > 1e-9); });
     });
-    $('labRodar').addEventListener('click', () => { sincronizarCentral(); sincronizarDuracao(+$('labAnos').value); aplicarExperimento(true); });
+    $('labRodar').addEventListener('click', () => { sincronizarCentral(); sincronizarDuracao(+$('labAnos').value); aplicarExperimento(false); });
     $('labReset').addEventListener('click', () => { resetLab(); $('labStatus').textContent = 'Valores originais restaurados (clique em Executar para rodar).'; });
   }
   function fmtParam(m, v) { if (m.k === 'K_referencia') return fmt(v); if (m.k === 'area_ha') return fmt(v) + ' ha'; if (m.k === 'pares_iniciais') return fmt(v) + (v === 1 ? ' casal' : ' casais'); if (m.k === 'chuva_vies') return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; return fmt2(v) + (m.un && m.un.startsWith('×') ? '×' : ''); }
   function resetLab() {
     Eng.PARAM_META.forEach(m => { const inp = $('par_' + m.k); inp.value = Eng.PADRAO[m.k]; inp.dispatchEvent(new Event('input')); });
-    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';
+    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labEstacoes').value = Eng.PADRAO.estacoes; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';
     Object.keys(Eng.PRED_TIPOS).forEach(k => { $('lpOn_' + k).checked = false; $('lp_' + k).classList.remove('on'); });
   }
   function abrirNoLab(p) {
@@ -992,6 +1004,7 @@
     Eng.PARAM_META.forEach(m => { p[m.k] = +$('par_' + m.k).value; });
     p.fundadores = $('labFund').value; p.semente = Math.max(1, Math.floor(+$('labSemente').value || 42)); p.surtos_doenca = $('labSurtos').value === '1';
     p.anos = +$('labAnos').value;
+    p.estacoes = $('labEstacoes').value;
     p.predadores = Object.keys(Eng.PRED_TIPOS).filter(k => $('lpOn_' + k).checked).map(k => ({ tipo: k, ano: clamp(Math.floor(+$('lpAno_' + k).value || 1), 1, p.anos), n: clamp(Math.floor(+$('lpN_' + k).value || 1), 1, 50) }));
     return p;
   }
@@ -1020,7 +1033,7 @@
         atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
         const dt = Math.round(performance.now() - t0);
         $('labStatus').textContent = `Concluído em ${dt} ms. Toda a página agora mostra este experimento.`;
-        $('centralStatus').textContent = `Experimento simulado (${p.anos} anos, ${dt} ms). A página inteira mostra este resultado.`;
+        $('centralStatus').textContent = `Experimento simulado: ${p.anos} anos, ${Eng.REGIMES[p.estacoes].curto.toLowerCase()}, sorte nº ${p.semente} (${dt} ms).`;
         renderLabResultado(p);
       } catch (e) {
         console.error(e); $('labStatus').textContent = 'Erro ao executar: ' + e.message;

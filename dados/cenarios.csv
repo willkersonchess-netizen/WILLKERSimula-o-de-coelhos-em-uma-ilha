@@ -1,21 +1,23 @@
 ﻿cenario;grupo;prob_extincao;N_medio_mediana;N_max_mediana;N_final_mediana;colapsos_medios;prob_predador_sobrevive;vigor_grama_final;arbustos_final_rel
-Chuva média (original);ambiente;0,8;249;7048;0;3,68;;0,897;0,263
-A · Primaveras secas;ambiente;1;183;6335;0;2,48;;1;0,284
-B · Primaveras chuvosas;ambiente;0,48;412;7602;8;5,72;;0,742;0,219
-C · Poucos arbustos;ambiente;0,84;207;5525;0;3,8;;0,913;0,534
-D · Muitos arbustos;ambiente;0,88;323;8612;0;4,28;;0,924;0,136
-E · Recuperação lenta;ambiente;1;148;6113;0;1,4;;1;0,165
-F · Recuperação rápida;ambiente;0,16;515;8055;31;9,24;;0,626;0,191
-G · Depressão endogâmica forte;ambiente;0,92;212;3850;0;1,08;;0,996;0,354
-H · Depressão endogâmica fraca;ambiente;0,92;256;9010;0;4,6;;0,933;0,265
-I · Ilha maior (400 ha);ambiente;1;273;8259;0;1,28;;1;0,289
-Gatos ferais (4 no ano 3);predadores;0,76;211;4308;0;2,44;0;0,874;0,562
-Raposas (casal no ano 3);predadores;0,84;219;6969;0;3,6;0;0,908;0,258
-Arminhos (4 no ano 3);predadores;0,92;227;6083;0;3;0;0,928;0,365
-Aves de rapina (desde o ano 1);predadores;0,88;278;7165;0;4,44;0,08;0,871;0,197
-Gatos junto com os coelhos (ano 1);predadores;0,88;2;25;0;1,08;0;0,936;0,774
-Gatos + aves de rapina;predadores;0,84;5;172;0;1,64;0,16;0,956;0,775
-Gatos numa ilha maior (400 ha);predadores;0,24;30;118;15;0,44;0,92;1;1,235
-Dois machos;fundadores;1;0;2;0;0;;1;1,319
-Casal de filhotes (1 mês);fundadores;0,92;188;5489;0;2,52;;0,99;0,595
-Fêmea infértil;fundadores;1;0;2;0;0;;1;1,319
+Chuva média (original);ambiente;0,16;581;5643;57;14,48;;0,589;0,194
+A · Primaveras secas;ambiente;0,12;529;5478;61;14,24;;0,69;0,188
+B · Primaveras chuvosas;ambiente;0,12;587;5555;78;14,92;;0,555;0,185
+C · Poucos arbustos;ambiente;0,12;539;4836;93;14,6;;0,482;0,429
+D · Muitos arbustos;ambiente;0,12;632;5773;74;13,2;;0,632;0,096
+E · Recuperação lenta;ambiente;0,72;299;4998;0;6,56;;0,832;0,197
+F · Recuperação rápida;ambiente;0,12;788;5718;418;15,96;;0,719;0,176
+G · Depressão endogâmica forte;ambiente;0,12;620;3675;107;7,6;;0,76;0,199
+H · Depressão endogâmica fraca;ambiente;0,12;511;6110;65;16,44;;0,505;0,184
+I · Ilha maior (400 ha);ambiente;0,32;547;9905;48;2;;0,983;0,258
+Estações: primavera e outono;ambiente;0,4;517;5767;19;9,64;;0,765;0,229
+Estações: quatro estações (temperado);ambiente;0,4;422;5015;10;7,32;;0,724;0,227
+Gatos ferais (4 no ano 3);predadores;0,12;78;392;70;3,8;0,6;0,72;0,965
+Raposas (casal no ano 3);predadores;0,12;545;5329;118;14,12;0;0,592;0,186
+Arminhos (4 no ano 3);predadores;0,32;565;5109;87;10,96;0;0,769;0,439
+Aves de rapina (desde o ano 1);predadores;0,12;571;5354;178;13,36;0,64;0,689;0,188
+Gatos junto com os coelhos (ano 1);predadores;0,08;71;98;72;2,08;0,76;0,917;1,183
+Gatos + aves de rapina;predadores;0,12;560;5133;68;11,16;0,92;0,619;0,344
+Gatos numa ilha maior (400 ha);predadores;0,12;281;644;277;0,36;0,96;0,994;1,396
+Dois machos;fundadores;1;0;2;0;0;;1;1,512
+Casal de filhotes (1 mês);fundadores;0,36;540;5053;24;10,64;;0,674;0,549
+Fêmea infértil;fundadores;1;0;2;0;0;;1;1,512

@@ -8,3 +8,6 @@ desktop.ini
 # Configuracoes locais
 .claude/
 .vscode/
+
+# pacotes gerados
+*.zip

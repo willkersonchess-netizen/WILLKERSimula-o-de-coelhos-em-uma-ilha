@@ -95,7 +95,7 @@
       <div class="heroi-txt">
         <span class="kicker">Simulação baseada em indivíduos</span>
         <h1>Dois coelhos.<br>Uma ilha.<br><em><span class="tAnosExtenso">Cinquenta</span> anos.</em></h1>
-        <p class="lead">Uma ilha isolada, que alimentaria cerca de 6.000 coelhos numa boa primavera, recebe um único casal. Cada coelho nasce, come, envelhece e morre dentro do modelo. O que acontece com eles e com a ilha?</p>
+        <p class="lead">Uma ilha isolada, que alimentaria cerca de 6.000 coelhos na estação mais chuvosa, recebe um único casal. Cada coelho nasce, come, envelhece e morre dentro do modelo. O que acontece com eles e com a ilha?</p>
         <div class="botoes">
           <button class="btn pri" id="heroiPlay">▶ Assistir à história</button>
           <a class="btn" href="#capitulos">Ler em capítulos</a>
@@ -132,14 +132,17 @@
           </div>
         </div>
         <div class="cc-bloco">
-          <div class="cc-t">Chuva nas primaveras</div>
-          <div class="seg" id="ccClima"><button data-v="-0.15">Secas</button><button data-v="0" class="on">Normais</button><button data-v="0.15">Chuvosas</button></div>
+          <div class="cc-t">Estações predominantes <span class="ajuda" tabindex="0" data-dica="Brasil: verão chuvoso e inverno seco dominam; primavera e outono são transições. Primavera e outono: duas épocas de chuva. Quatro estações: clima temperado, com inverno frio.">?</span></div>
+          <div class="seg" id="ccEst"><button data-v="brasil" class="on">Verão e inverno</button><button data-v="bimodal">Primavera e outono</button><button data-v="temperado">4 estações</button></div>
+          <div class="cc-t" style="margin-top:12px">Chuva na estação chuvosa</div>
+          <div class="seg" id="ccClima"><button data-v="-0.15">Pouca</button><button data-v="0" class="on">Normal</button><button data-v="0.15">Muita</button></div>
           <div class="cc-t" style="margin-top:12px">Tamanho da ilha <span class="ajuda" tabindex="0" data-dica="A capacidade continua 6.000 coelhos: ilha maior significa terra mais pobre por hectare e mais espaço para predadores.">?</span></div>
           <div class="seg" id="ccIlha"><button data-v="100" class="on">100 ha</button><button data-v="400">400 ha</button><button data-v="800">800 ha</button></div>
         </div>
         <div class="cc-bloco cc-acao">
           <button class="btn pri grande" id="ccSimular">▶ Simular</button>
           <button class="btn" id="ccReset">Restaurar original</button>
+          <label class="small" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ccSorteNova" checked style="accent-color:var(--preto)"> 🎲 Sorte nova a cada simulação <span class="ajuda" tabindex="0" data-dica="Como na natureza, cada simulação tem chuvas, nascimentos e mortes diferentes. Desmarque para repetir exatamente a mesma sorte (a semente aparece no Laboratório).">?</span></label>
           <a class="link-sutil" href="#laboratorio">Mais controles no Laboratório →</a>
         </div>
       </div>
@@ -245,9 +248,9 @@
 
   <section class="sec" id="clima">
     <div class="sec-cab"><div><span class="kicker">05 · Clima e estações</span><h2>Chuva, calor e umidade</h2>
-      <p class="pp">A chuva da primavera muda de ano para ano (70% a 130% da média), e às vezes vêm vários anos secos ou chuvosos seguidos. Mais chuva significa mais grama, mas também mais coelhos.</p></div></div>
+      <p class="pp">A chuva da estação chuvosa muda de ano para ano (70% a 130% da média), e às vezes vêm vários anos secos ou chuvosos seguidos. Mais chuva significa mais grama, mas também mais coelhos. No regime "Brasil", o verão concentra a chuva e o inverno é seco; primavera e outono são transições.</p></div></div>
     <div class="estacoes4" id="estacoes4"></div>
-    <div class="cartao" style="margin-top:16px"><h3>Chuva da primavera por ano</h3><p class="sub">1,0 = chuva média (210 mm). Barras ocre: primaveras secas; azuis: chuvosas.</p><div id="gChuvaPrim"></div></div>
+    <div class="cartao" style="margin-top:16px"><h3 id="tChuvaPrim">Chuva da estação chuvosa por ano</h3><p class="sub" id="sChuvaPrim">1,0 = chuva média. Barras ocre: anos secos; azuis: chuvosos.</p><div id="gChuvaPrim"></div></div>
     <div class="cartao" style="margin-top:16px" id="climaFatos"></div>
     <details class="mais"><summary>Mais gráficos do clima (3)</summary>
       <div class="grid g2">
@@ -261,11 +264,11 @@
   <section class="sec" id="capacidade">
     <div class="sec-cab"><div><span class="kicker">06 · Capacidade de suporte</span><h2>Quantos coelhos a ilha consegue alimentar?</h2>
       <p class="pp">Há comida para muitos coelhos na primavera, mas para bem menos no inverno. E, quanto mais a vegetação é destruída, menos a ilha alimenta.</p>
-      <p class="small muted"><b>Capacidade da estação</b> <span class="ajuda" tabindex="0" data-dica="Quantos coelhos adultos a comida daquela estação sustentaria sem destruir as plantas (usando 45% do alimento).">?</span> · <b>Capacidade sustentável</b> <span class="ajuda" tabindex="0" data-dica="A menor das quatro capacidades do ano: a estação mais difícil decide quantos coelhos o ano todo aguenta.">?</span> · a primeira primavera foi calibrada para 6.000.</p></div></div>
+      <p class="small muted"><b>Capacidade da estação</b> <span class="ajuda" tabindex="0" data-dica="Quantos coelhos adultos a comida daquela estação sustentaria sem destruir as plantas (usando 45% do alimento).">?</span> · <b>Capacidade sustentável</b> <span class="ajuda" tabindex="0" data-dica="A menor das quatro capacidades do ano: a estação mais difícil decide quantos coelhos o ano todo aguenta.">?</span> · a estação chuvosa média foi calibrada para 6.000.</p></div></div>
     <div class="cartao"><h3>Coelhos × capacidade</h3><p class="sub">Área vermelha: mais coelhos do que comida.</p><div id="gCap"></div></div>
     <details class="mais"><summary>Mais gráficos de alimentação (3)</summary>
       <div class="grid g2">
-        <div class="cartao"><h3>Capacidade da primavera por ano</h3><p class="sub">Comparada com a premissa de 6.000.</p><div id="gCapPrim"></div></div>
+        <div class="cartao"><h3>Capacidade da estação chuvosa por ano</h3><p class="sub">Comparada com a premissa de 6.000.</p><div id="gCapPrim"></div></div>
         <div class="cartao"><h3>Índice alimentar</h3><p class="sub">Energia obtida ÷ necessária (100% = bem alimentados).</p><div id="gAlim"></div></div>
         <div class="cartao span2"><h3>De que os coelhos se alimentaram</h3><p class="sub">Grama seca, cascas e raízes são sinal de fome.</p><div id="gDieta"></div></div>
       </div>
@@ -350,6 +353,8 @@
       <div class="lab-grid">
         <div class="grupo-t">Experimento</div>
         <label class="slider"><span class="sl-top"><span>Duração</span><output id="labAnosVal">50 anos</output></span><input type="range" id="labAnos" min="10" max="100" step="1" value="50"></label>
+        <label class="slider"><span class="sl-top"><span>Estações predominantes</span></span>
+          <select id="labEstacoes"><option value="brasil">Brasil: verão chuvoso e inverno seco</option><option value="bimodal">Primavera e outono chuvosos</option><option value="temperado">Quatro estações (temperado)</option></select></label>
         <label class="slider"><span class="sl-top"><span>Fundadores</span></span>
           <select id="labFund"><option value="par_adulto">Casal adulto (original)</option><option value="dois_machos">Dois machos</option><option value="dois_filhotes">Casal de filhotes (1 mês)</option><option value="femea_infertil">Fêmea infértil</option></select></label>
         <label class="slider"><span class="sl-top"><span>Repetições</span><span class="ajuda" tabindex="0" data-dica="Rodar várias vezes com sortes diferentes mostra a probabilidade de cada resultado (Monte Carlo).">?</span></span>

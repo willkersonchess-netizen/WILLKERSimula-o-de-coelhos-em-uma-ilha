@@ -1,19 +1,19 @@
 ==========================================================================
  ILHA - ANALISE ESTATISTICA COMPLEMENTAR (50 anos)
 ==========================================================================
- Motor v2.3.0 | semente 42 | gerado em 2026-11-09T00:39:07.471Z
+ Motor v2.4.0 | semente 42 | gerado em 2026-11-09T01:12:28.769Z
 
 1. RESUMO DA EXECUCAO ORIGINAL
-   Populacao: inicial 2 | maxima 7355 (ano 5, Verao) | final 0
-   Nascimentos 32523 | Mortes 32525 | Colapsos 3 | Extinta: sim
+   Populacao: inicial 2 | maxima 6469 (ano 5, Verao) | final 48
+   Nascimentos 93631 | Mortes 93585 | Colapsos 14 | Extinta: nao
 
 2. CICLOS POPULACIONAIS (autocorrelacao de log(N+1), registros sazonais)
-   Periodicidade dominante: ~35 estacoes (~8.8 anos), autocorrelacao 0.75.
+   Periodicidade dominante: ~60 estacoes (~15.0 anos), autocorrelacao 0.23.
    Interpretacao: tempo medio entre explosoes, ditado pela recuperacao da vegetacao.
 
 3. CHUVA DA PRIMAVERA x CRESCIMENTO DA POPULACAO NO ANO
-   Anos com >= 10 coelhos no inicio: 16
-   Correlacao (chuva da primavera x log da taxa de crescimento): -0.19
+   Anos com >= 10 coelhos no inicio: 47
+   Correlacao (chuva da primavera x log da taxa de crescimento): 0.04
    Correlacao fraca = a chuva sozinha nao explica o crescimento; a degradacao
    acumulada da vegetacao e a densidade pesam mais.
 
@@ -23,38 +23,40 @@
    Arbustos < 50%: registro 20 (+2 estacoes em relacao ao pico)
 
 5. MORTES POR ESTACAO DO ANO
-   Primavera  mortes    11098 ( 34.1%)   nascimentos    16717
-   Verao      mortes    10788 ( 33.2%)   nascimentos    12243
-   Outono     mortes     5198 ( 16.0%)   nascimentos     2028
-   Inverno    mortes     5441 ( 16.7%)   nascimentos     1535
-   Causas: endogamia 10170, basal 6478, neonatal 6110, fome 5684, doenca 2627, desidratacao 1394, idade 62
+   Primavera  mortes    20328 ( 21.7%)   nascimentos    24147
+   Verao      mortes    28492 ( 30.4%)   nascimentos    35365
+   Outono     mortes    24171 ( 25.8%)   nascimentos    23786
+   Inverno    mortes    20594 ( 22.0%)   nascimentos    10333
+   Causas: endogamia 32164, neonatal 22693, basal 15702, fome 13790, doenca 4440, desidratacao 3326, surto 1310, idade 159, clima 1
 
 6. MONTE CARLO DO CENARIO ORIGINAL (80 repeticoes)
-   Probabilidade de extincao em 50 anos: 85%  (IC 95% aprox.: 77% a 93%)
-   Populacao media (mediana entre repeticoes): 272 | final (mediana): 0
-   Ano da extincao, quando ocorre: mediana 22.8 | min 1.2 | max 48.8
+   Probabilidade de extincao em 50 anos: 14%  (IC 95% aprox.: 6% a 21%)
+   Populacao media (mediana entre repeticoes): 579 | final (mediana): 106
+   Ano da extincao, quando ocorre: mediana 4.0 | min 1.0 | max 40.2
 
 7. CENARIOS (25 repeticoes cada, mesmas sementes, 50 anos)
    Cenario                               Grupo         P(ext)  N medio  Colapsos   Grama Pred.vivo
-   Chuva média (original)                ambiente         80%      249      3.68     90%         -
-   A · Primaveras secas                  ambiente        100%      183      2.48    100%         -
-   B · Primaveras chuvosas               ambiente         48%      412      5.72     74%         -
-   C · Poucos arbustos                   ambiente         84%      207      3.80     91%         -
-   D · Muitos arbustos                   ambiente         88%      323      4.28     92%         -
-   E · Recuperação lenta                 ambiente        100%      148      1.40    100%         -
-   F · Recuperação rápida                ambiente         16%      515      9.24     63%         -
-   G · Depressão endogâmica forte        ambiente         92%      212      1.08    100%         -
-   H · Depressão endogâmica fraca        ambiente         92%      256      4.60     93%         -
-   I · Ilha maior (400 ha)               ambiente        100%      273      1.28    100%         -
-   Gatos ferais (4 no ano 3)             predadores       76%      211      2.44     87%        0%
-   Raposas (casal no ano 3)              predadores       84%      219      3.60     91%        0%
-   Arminhos (4 no ano 3)                 predadores       92%      227      3.00     93%        0%
-   Aves de rapina (desde o ano 1)        predadores       88%      278      4.44     87%        8%
-   Gatos junto com os coelhos (ano 1)    predadores       88%        2      1.08     94%        0%
-   Gatos + aves de rapina                predadores       84%        5      1.64     96%       16%
-   Gatos numa ilha maior (400 ha)        predadores       24%       30      0.44    100%       92%
+   Chuva média (original)                ambiente         16%      581     14.48     59%         -
+   A · Primaveras secas                  ambiente         12%      529     14.24     69%         -
+   B · Primaveras chuvosas               ambiente         12%      587     14.92     55%         -
+   C · Poucos arbustos                   ambiente         12%      539     14.60     48%         -
+   D · Muitos arbustos                   ambiente         12%      632     13.20     63%         -
+   E · Recuperação lenta                 ambiente         72%      299      6.56     83%         -
+   F · Recuperação rápida                ambiente         12%      788     15.96     72%         -
+   G · Depressão endogâmica forte        ambiente         12%      620      7.60     76%         -
+   H · Depressão endogâmica fraca        ambiente         12%      511     16.44     51%         -
+   I · Ilha maior (400 ha)               ambiente         32%      547      2.00     98%         -
+   Estações: primavera e outono          ambiente         40%      517      9.64     77%         -
+   Estações: quatro estações (temperado) ambiente         40%      422      7.32     72%         -
+   Gatos ferais (4 no ano 3)             predadores       12%       78      3.80     72%       60%
+   Raposas (casal no ano 3)              predadores       12%      545     14.12     59%        0%
+   Arminhos (4 no ano 3)                 predadores       32%      565     10.96     77%        0%
+   Aves de rapina (desde o ano 1)        predadores       12%      571     13.36     69%       64%
+   Gatos junto com os coelhos (ano 1)    predadores        8%       71      2.08     92%       76%
+   Gatos + aves de rapina                predadores       12%      560     11.16     62%       92%
+   Gatos numa ilha maior (400 ha)        predadores       12%      281      0.36     99%       96%
    Dois machos                           fundadores      100%        0      0.00    100%         -
-   Casal de filhotes (1 mês)             fundadores       92%      188      2.52     99%         -
+   Casal de filhotes (1 mês)             fundadores       36%      540     10.64     67%         -
    Fêmea infértil                        fundadores      100%        0      0.00    100%         -
 
 ==========================================================================

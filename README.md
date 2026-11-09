@@ -101,6 +101,21 @@ principal: **sem predadores, os coelhos destroem o pasto e somem em ~70% das rep
 que levaria ao colapso. Predadores que dependem só dos coelhos (raposas) costumam morrer de
 fome depois de derrubar a população.
 
+## Estações e aleatoriedade (motor v2.4)
+
+- **Regimes de estações** (botão na Central de experimento e no Laboratório): **Brasil** (padrão: verão
+  chuvoso e quente, inverno seco e ameno; primavera e outono como transição), **Primavera e outono**
+  (duas épocas de chuva) e **Quatro estações** (temperado). Cada regime define temperatura, chuva,
+  crescimento, secagem, reprodução e os meses de germinação, floração e seca.
+- **Sorte nova a cada simulação:** o botão Simular usa uma semente aleatória nova, então cada
+  experimento conta uma história diferente. A semente usada aparece no Laboratório; desmarcando
+  "Sorte nova" a mesma simulação se repete exatamente.
+- **Refúgio nas tocas:** com poucos coelhos, quase todos ficam junto às tocas, fora do alcance de
+  gatos, raposas e aves (o arminho entra nas tocas). Isso permite que predadores e coelhos convivam.
+- **Reprodução dependente da densidade** (estresse social) e **cuidado parental** dos predadores.
+- Quando os gatos se estabelecem, eles controlam os coelhos e o pasto e os arbustos se recuperam
+  por completo; quando não se estabelecem, a ilha segue o ciclo de explosão e colapso.
+
 ## Revisão de realismo (motor v2.2)
 
 - Predadores: filhotes passam a depender dos pais (não caçam e comem menos) e morrem primeiro quando

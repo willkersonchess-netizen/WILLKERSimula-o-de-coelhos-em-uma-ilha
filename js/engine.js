@@ -13,21 +13,68 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '2.3.0';
+  const VERSAO = '2.4.0';
   const ESTACOES = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
-  /* ---------------- Perfis sazonais (12 meses, começando na primavera) ---- */
-  // Fração do crescimento potencial da grama em cada mês (hipótese: clima
-  // temperado/mediterrânico com crescimento concentrado na primavera).
-  const PERFIL_GRAMA = [0.75, 1.0, 0.95, 0.70, 0.45, 0.30, 0.15, 0.20, 0.12, 0.05, 0.06, 0.15];
-  // Taxa mensal de senescência (verde -> seca). A grama seca no outono.
-  const SENESC = [0.03, 0.04, 0.06, 0.12, 0.18, 0.25, 0.35, 0.35, 0.30, 0.25, 0.20, 0.10];
-  // Rebrota de folhas/brotos dos arbustos (perenes, resistentes ao outono).
-  const PERFIL_ARB = [0.9, 1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.35, 0.3, 0.2, 0.2, 0.4];
-  // Fotoperíodo/estímulo sazonal da reprodução de O. cuniculus.
-  const FOTOPERIODO = [0.95, 1.0, 1.0, 0.95, 0.85, 0.65, 0.35, 0.25, 0.2, 0.1, 0.15, 0.5];
-  // Temperatura média mensal de referência (°C).
-  const PERFIL_T = [14, 17, 20, 23, 25, 24, 20, 16, 13, 10, 9, 11];
+  /* ---------------- Regimes de estações ----------------
+     Cada regime define o calendário biológico (12 meses, começando no 1º mês da
+     primavera: setembro no hemisfério sul). As estações "predominantes" concentram
+     chuva, crescimento e reprodução; as de transição têm efeito intermediário.
+       T        temperatura média mensal (°C)
+       chuva    chuva média por estação (mm): [primavera, verão, outono, inverno]
+       principal estação cuja chuva varia de 70% a 130% (a mais chuvosa)
+       grama    crescimento potencial relativo da grama em cada mês (limitado depois pela umidade)
+       senesc   taxa mensal de secagem (verde → seca)
+       arb      rebrota de folhas/brotos dos arbustos e da árvore
+       foto     estímulo sazonal à reprodução dos coelhos
+       cresc    meses de estação de crescimento (pastejo pesado danifica mais; raízes rebrotam)
+       flor     meses de produção de sementes · germ: meses de germinação · seco: meses da estação seca
+       altSaz   presas alternativas dos predadores por estação · rapSaz: presença das aves de rapina
+       pSeco    chance de um mês quase sem chuva por estação · eventos: ondas de calor, frio, tempestades */
+  const REGIMES = {
+    brasil: {
+      nome: 'Brasil: verão chuvoso e inverno seco', curto: 'Brasil (verão e inverno)', principal: 1,
+      T: [22, 23, 24, 25, 26, 26, 25, 23, 21, 19, 18, 20],
+      chuva: [270, 620, 260, 60],
+      grama: [0.6, 0.85, 0.95, 1.0, 1.0, 1.0, 0.9, 0.75, 0.55, 0.35, 0.3, 0.4],
+      senesc: [0.05, 0.04, 0.04, 0.04, 0.04, 0.05, 0.07, 0.10, 0.15, 0.20, 0.20, 0.12],
+      arb: [0.9, 1.0, 1.0, 1.0, 1.0, 0.95, 0.85, 0.7, 0.55, 0.45, 0.45, 0.65],
+      foto: [0.85, 0.95, 1.0, 1.0, 1.0, 0.95, 0.85, 0.7, 0.55, 0.4, 0.4, 0.6],
+      cresc: [0, 1, 2, 3, 4, 5, 6, 7], flor: [4, 5, 6], germ: [0, 1, 2, 3], seco: [9, 10, 11],
+      altSaz: [1.0, 1.15, 1.0, 0.85], rapSaz: [1.0, 0.9, 1.0, 1.1], pSeco: [0.15, 0.03, 0.12, 0.45],
+      eventos: { calor: [1, 0.06, 4], frio: [3, 0.03, -5], tempestade: [[1], 0.06] },
+      desc: ['Volta das chuvas: a grama rebrota e a reprodução recomeça.', 'Estação predominante: chuva forte, calor, muito crescimento e muitos filhotes.', 'As chuvas diminuem; o crescimento desacelera.', 'Estação predominante: seca. A grama seca por falta de água (não por frio); a fome vem da falta de capim verde.']
+    },
+    bimodal: {
+      nome: 'Primavera e outono chuvosos', curto: 'Primavera e outono', principal: 0,
+      T: [17, 19, 21, 24, 26, 25, 22, 19, 17, 14, 13, 15],
+      chuva: [240, 80, 230, 110],
+      grama: [0.8, 1.0, 0.9, 0.5, 0.3, 0.4, 0.9, 1.0, 0.8, 0.35, 0.3, 0.5],
+      senesc: [0.04, 0.04, 0.06, 0.15, 0.20, 0.15, 0.05, 0.05, 0.08, 0.15, 0.15, 0.08],
+      arb: [0.9, 1.0, 1.0, 0.7, 0.5, 0.6, 0.9, 1.0, 0.9, 0.5, 0.5, 0.7],
+      foto: [0.9, 1.0, 1.0, 0.7, 0.5, 0.6, 0.9, 1.0, 0.9, 0.4, 0.4, 0.6],
+      cresc: [0, 1, 2, 6, 7, 8], flor: [1, 2, 7, 8], germ: [0, 1, 6, 7], seco: [3, 4, 5],
+      altSaz: [1.0, 0.9, 1.0, 0.8], rapSaz: [1.0, 0.8, 1.0, 1.1], pSeco: [0.06, 0.3, 0.06, 0.1],
+      eventos: { calor: [1, 0.07, 5], frio: [3, 0.03, -4], tempestade: [[2], 0.04] },
+      desc: ['Estação predominante: chuva e crescimento. Época principal de filhotes.', 'Calor e seca moderada: o capim amarela.', 'Estação predominante: segunda temporada de chuvas e de crescimento.', 'Fresco e úmido, crescimento lento.']
+    },
+    temperado: {
+      nome: 'Quatro estações (clima temperado)', curto: 'Quatro estações', principal: 0,
+      T: [14, 17, 20, 23, 25, 24, 20, 16, 13, 10, 9, 11],
+      chuva: [210, 90, 150, 130],
+      grama: [0.75, 1.0, 0.95, 0.70, 0.45, 0.30, 0.15, 0.20, 0.12, 0.05, 0.06, 0.15],
+      senesc: [0.03, 0.04, 0.06, 0.12, 0.18, 0.25, 0.35, 0.35, 0.30, 0.25, 0.20, 0.10],
+      arb: [0.9, 1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.35, 0.3, 0.2, 0.2, 0.4],
+      foto: [0.95, 1.0, 1.0, 0.95, 0.85, 0.65, 0.35, 0.25, 0.2, 0.1, 0.15, 0.5],
+      cresc: [0, 1, 2, 3, 4, 5], flor: [2, 3, 4], germ: [0, 1, 2, 6, 7], seco: [3, 4, 5],
+      altSaz: [1.0, 1.1, 0.9, 0.75], rapSaz: [0.7, 0.5, 1.0, 1.3], pSeco: [0.06, 0.25, 0.08, 0.06],
+      eventos: { calor: [1, 0.08, 5], frio: [3, 0.06, -4], tempestade: [[2, 3], 0.035] },
+      desc: ['A grama volta a crescer; brotos e folhas novas. Época principal de reprodução.', 'Crescimento desacelera com o calor; muitos filhotes crescendo.', 'A grama seca; mais dependência de arbustos e capim seco.', 'Frio, pouca grama verde, reprodução baixa.']
+    }
+  };
+  // conjuntos de meses em formato de consulta rápida
+  Object.values(REGIMES).forEach(R => ['cresc', 'flor', 'germ', 'seco'].forEach(k => { const s = new Array(12).fill(false); R[k].forEach(m => { s[m] = true; }); R[k + 'B'] = s; }));
+  const regimeDe = (P) => REGIMES[P.estacoes] || REGIMES.brasil;
 
   /* ---------------- Constantes biológicas ---------------- */
   const DIAS_MES = 30.4;
@@ -83,12 +130,15 @@
     endogamia_mult: 1.0,
     surtos_doenca: true,
     fundadores: 'par_adulto',
+    estacoes: 'brasil',      // regime de estações: 'brasil' | 'bimodal' | 'temperado'
     presas_alt: 1.0,        // disponibilidade de presas alternativas para os predadores (× padrão)
     pred_eficiencia: 1.0,   // taxa de ataque (Holling): maior = caça melhor quando há poucos coelhos
     pred_reproducao: 1.0,   // multiplica probabilidade de reprodução e tamanho da ninhada dos predadores
     pred_mortalidade: 1.0,  // multiplica a mortalidade natural (não a fome) dos predadores
     pred_territorio: 1.0,   // multiplica quantos adultos territoriais cabem por km²
     pares_iniciais: 1,      // casais fundadores de coelhos (a premissa original é 1)
+    refugio_tocas: 0.5,     // coelhos por ha protegidos dos predadores junto às tocas
+    estresse_densidade: 35, // densidade (coelhos/ha) em que o estresse social reduz a reprodução à metade
     predadores: []          // ex.: [{ tipo: 'gato', ano: 3, n: 4 }]
   };
 
@@ -124,7 +174,9 @@
     { id: 'F', nome: 'F · Recuperação rápida', curto: 'Recup. rápida', p: { grama_regen: 1.8, arbusto_regen: 1.8 } },
     { id: 'G', nome: 'G · Depressão endogâmica forte', curto: 'Endogamia forte', p: { endogamia_mult: 3.0 } },
     { id: 'H', nome: 'H · Depressão endogâmica fraca', curto: 'Endogamia fraca', p: { endogamia_mult: 0.25 } },
-    { id: 'I', nome: 'I · Ilha maior (400 ha)', curto: 'Ilha maior', p: { area_ha: 400 } }
+    { id: 'I', nome: 'I · Ilha maior (400 ha)', curto: 'Ilha maior', p: { area_ha: 400 } },
+    { id: 'R1', nome: 'Estações: primavera e outono', curto: 'Primavera e outono', p: { estacoes: 'bimodal' } },
+    { id: 'R2', nome: 'Estações: quatro estações (temperado)', curto: 'Quatro estações', p: { estacoes: 'temperado' } }
   ];
 
   const CENARIOS_PRED = [
@@ -159,11 +211,11 @@
      monogamo: forma casais (cada fêmea precisa do seu macho)
      migra  : aves de rapina não se reproduzem na ilha; vêm e vão conforme a oferta de presas */
   const PRED_TIPOS = {
-    gato: { nome: 'Gato feral', icone: '🐈', need: 9, h: 0.6, juv: 2.5, prot: 0.6, alt: 0.75, altCap: 4, repro: [0, 1, 3, 4], pRepro: 0.65, ninhada: 4, sobrevFilhote: 0.6, mort: 0.2, fome: 0.5, dens: 8, matur: 6, migra: false,
+    gato: { nome: 'Gato feral', icone: '🐈', need: 9, h: 0.6, juv: 2.5, prot: 0.6, alt: 0.85, altCap: 6, repro: [0, 1, 3, 4], pRepro: 0.65, ninhada: 4, sobrevFilhote: 0.6, mort: 0.2, fome: 0.5, dens: 8, matur: 6, migra: false,
       resumo: 'Caçador solitário e de emboscada. Prefere filhotes e coelhos jovens; também come aves e insetos, por isso pode persistir mesmo quando os coelhos ficam raros.' },
-    raposa: { nome: 'Raposa-vermelha', icone: '🦊', need: 14, h: 0.8, juv: 2, prot: 0.45, alt: 0.35, altCap: 1.5, repro: [0], pRepro: 0.8, ninhada: 4.5, sobrevFilhote: 0.6, mort: 0.3, fome: 0.6, dens: 2, matur: 7, monogamo: true, migra: false,
-      resumo: 'Predador grande, come mais por dia e cava ninhos. Uma ninhada por ano, na primavera. Depende muito de presas abundantes.' },
-    arminho: { nome: 'Arminho', icone: '🐾', need: 2.5, h: 0.5, juv: 4, prot: 0.15, alt: 0.45, altCap: 4, repro: [1], pRepro: 0.9, ninhada: 6, sobrevFilhote: 0.5, mort: 0.5, fome: 0.7, dens: 10, matur: 3, migra: false,
+    raposa: { nome: 'Raposa-vermelha', icone: '🦊', need: 14, h: 0.8, juv: 2, prot: 0.45, alt: 0.6, altCap: 2.5, repro: [0], pRepro: 0.8, ninhada: 4.5, sobrevFilhote: 0.6, mort: 0.3, fome: 0.6, dens: 3, matur: 7, monogamo: true, migra: false,
+      resumo: 'Predador grande e onívoro: come coelhos, mas também frutas, insetos, aves e carniça. Uma ninhada por ano, na primavera. Forma casais.' },
+    arminho: { nome: 'Arminho', icone: '🐾', entraToca: true, need: 2.5, h: 0.5, juv: 4, prot: 0.15, alt: 0.55, altCap: 5, repro: [1], pRepro: 0.9, ninhada: 6, sobrevFilhote: 0.5, mort: 0.5, fome: 0.7, dens: 10, matur: 3, migra: false,
       resumo: 'Pequeno e ágil, entra nas tocas (a vegetação quase não protege os coelhos dele). Mata sobretudo filhotes. Vive pouco e se reproduz muito.' },
     rapina: { nome: 'Aves de rapina', icone: '🦅', need: 6, h: 1.2, juv: 3, prot: 0.75, alt: 0.5, altCap: 0, max: 3, migra: true,
       resumo: 'Gaviões e águias que chegam voando. Não se reproduzem na ilha: o número acompanha a oferta de coelhos. Cobertura vegetal protege bem contra elas.' }
@@ -219,31 +271,32 @@
     const meses = [], anual = [];
     const rho = clamp(P.chuva_autocorr, 0, 0.95);
     let z = normal(rng) * 0.5;
-    const bases = [P.chuva_primavera_mm, P.chuva_verao_mm, P.chuva_outono_mm, P.chuva_inverno_mm];
+    const RG = regimeDe(P), ev = RG.eventos;
+    const bases = RG.chuva;
     for (let y = 0; y < P.anos; y++) {
       z = rho * z + Math.sqrt(1 - rho * rho) * normal(rng);
-      const mult = [clamp(1 + P.chuva_vies + 0.17 * z, 0.70, 1.30)];
-      for (let s = 1; s < 4; s++) mult.push(clamp(1 + 0.22 * (0.5 * z + 0.85 * normal(rng)), 0.45, 1.7));
+      // a estação chuvosa principal varia de 70% a 130% (AR(1)); as demais acompanham em parte e têm ruído próprio
+      const mult = [0, 1, 2, 3].map(s => s === RG.principal ? clamp(1 + P.chuva_vies + 0.17 * z, 0.70, 1.30) : clamp(1 + 0.22 * (0.5 * z + 0.85 * normal(rng)), 0.45, 1.7));
       const anomT = 0.6 * (-0.6 * z + 0.8 * normal(rng));   // primavera seca ⇒ ano mais quente (mais evaporação)
       for (let s = 0; s < 4; s++) {
         const total = bases[s] * mult[s] * P.chuva_mult;
-        const pSeco = [0.06, 0.25, 0.08, 0.06][s];
+        const pSeco = RG.pSeco[s];
         const w = [0, 1, 2].map(() => { let v = rng() + 0.35; if (rng() < pSeco) v *= 0.08; return v; });
         const sw = w[0] + w[1] + w[2];
         for (let k = 0; k < 3; k++) {
           const mo = s * 3 + k;
           let chuva = total * w[k] / sw;
           let intens = 0.2 + 0.6 * rng();
-          let T = PERFIL_T[mo] + anomT + 0.8 * normal(rng);
+          let T = RG.T[mo] + anomT + 0.8 * normal(rng);
           let evento = null;
-          if (s === 1 && rng() < 0.08) { T += 5; evento = 'onda_calor'; }
-          if (s === 3 && rng() < 0.06) { T -= 4; evento = 'frio_extremo'; }
-          if ((s === 2 || s === 3) && rng() < 0.035) { chuva += (70 + 60 * rng()) * P.chuva_mult; intens = 0.9; evento = 'tempestade'; }
+          if (s === ev.calor[0] && rng() < ev.calor[1]) { T += ev.calor[2]; evento = 'onda_calor'; }
+          if (s === ev.frio[0] && rng() < ev.frio[1]) { T += ev.frio[2]; evento = 'frio_extremo'; }
+          if (ev.tempestade[0].indexOf(s) >= 0 && rng() < ev.tempestade[1]) { chuva += (70 + 60 * rng()) * P.chuva_mult; intens = 0.9; evento = 'tempestade'; }
           if (w[k] / sw < 0.05 && total > 20) evento = evento || 'mes_seco';
           meses.push({ chuva, intens, T, evento });
         }
       }
-      anual.push({ multPrim: mult[0], mult, anomT });
+      anual.push({ multPrim: mult[RG.principal], mult, anomT });
     }
     return { meses, anual };
   }
@@ -295,6 +348,7 @@
     const W = AET / PET;
     E.W = W; E.WHC = WHC; E.umid = E.SW / WHC; E.runoff = runoffFrac;
 
+    const RG = regimeDe(P);
     const T = cm.T;
     const fT = T < 4 ? 0.05 : T < 12 ? 0.05 + 0.95 * (T - 4) / 8 : T <= 26 ? 1 : Math.max(0.2, 1 - (T - 26) / 10);
 
@@ -302,34 +356,34 @@
     // vigor das raízes, área foliar remanescente e saturação logística.
     const folha = (E.Gg + 60) / (E.Gg + 100);
     const fert = 0.6 + 0.4 * E.OM;
-    const g = Gpot * PERFIL_GRAMA[mo] * fT * W * fert * E.R * folha * Math.max(0, 1 - E.Gg / P.grama_max);
+    const g = Gpot * RG.grama[mo] * fT * W * fert * E.R * folha * Math.max(0, 1 - E.Gg / P.grama_max);
     E.Gg += g;
-    const sen = clamp(SENESC[mo] + (mo < 6 ? 0.25 * (1 - W) : 0), 0, 0.8);
+    const sen = clamp(RG.senesc[mo] + 0.25 * (1 - W) * RG.grama[mo], 0, 0.8);   // seca por falta de água quando deveria crescer
     const tr = E.Gg * sen; E.Gg -= tr; E.Gd += tr;
     const dec = E.Gd * clamp(0.025 + 0.06 * W, 0, 0.2); E.Gd -= dec;
 
     // Arbustos: folhas/brotos acessíveis (Hb) e estrutura lenhosa (Hs)
     const capB = 0.10 * E.Hs;
-    const gb = 0.06 * P.arbusto_regen * E.Hs * PERFIL_ARB[mo] * (0.3 + 0.7 * W) * Math.max(0, 1 - E.Hb / Math.max(1e-6, capB));
+    const gb = 0.06 * P.arbusto_regen * E.Hs * RG.arb[mo] * (0.3 + 0.7 * W) * Math.max(0, 1 - E.Hb / Math.max(1e-6, capB));
     E.Hb += gb;
     const quedaB = E.Hb * 0.015; E.Hb -= quedaB;
-    const gs = 0.008 * P.arbusto_regen * E.Hs * W * PERFIL_ARB[mo] * Math.max(0, 1 - E.Hs / 1800) * Math.sqrt(clamp(E.Hb / Math.max(1e-6, capB), 0, 1));
+    const gs = 0.008 * P.arbusto_regen * E.Hs * W * RG.arb[mo] * Math.max(0, 1 - E.Hs / 1800) * Math.max(0.25, Math.sqrt(clamp(E.Hb / Math.max(1e-6, capB), 0, 1)));
     E.Hs += gs;
     let mortSeca = 0;
-    if (mo >= 3 && mo <= 5 && W < 0.3) { mortSeca = E.Hs * 0.005; E.Hs -= mortSeca; E.Hdead += mortSeca; }
+    if (RG.secoB[mo] && W < 0.3) { mortSeca = E.Hs * 0.005; E.Hs -= mortSeca; E.Hdead += mortSeca; }
     const decMad = E.Hdead * 0.02; E.Hdead -= decMad;
 
     // Árvore (oliveira-brava hipotética, Olea europaea, perene)
     let quedaF = 0, crescF = 0;
     if (E.arvViva) {
-      crescF = 0.04 * E.V * P.arvore_folhas_max * PERFIL_ARB[mo] * (0.4 + 0.6 * W) * Math.max(0, 1 - E.Lc / P.arvore_folhas_max);
+      crescF = 0.04 * E.V * P.arvore_folhas_max * RG.arb[mo] * (0.4 + 0.6 * W) * Math.max(0, 1 - E.Lc / P.arvore_folhas_max);
       E.Lc += crescF;
-      quedaF = E.Lc * (0.015 + (mo >= 3 && mo <= 5 ? 0.02 * (1 - W) : 0));
+      quedaF = E.Lc * (0.015 + (RG.secoB[mo] ? 0.02 * (1 - W) : 0));
       E.Lc -= quedaF; E.Lg += quedaF;
-      if (mo >= 3 && mo <= 5 && W < 0.35) E.V -= 0.01 * (0.35 - W) / 0.35;
+      if (RG.secoB[mo] && W < 0.35) E.V -= 0.01 * (0.35 - W) / 0.35;
       if (E.Bk < 0.6) E.V -= 0.04 * (0.6 - E.Bk) / 0.6;
       else if (W > 0.4) E.V += 0.01 * (1 - E.V);
-      if (mo < 6 && E.Bk > 0.3) E.Bk += 0.004 * E.V * (1 - E.Bk);
+      if (RG.crescB[mo] && E.Bk > 0.3) E.Bk += 0.004 * E.V * (1 - E.Bk);
       E.V = clamp(E.V, 0, 1);
       if (E.V <= 0.05) { E.arvViva = false; E.V = 0; E.mesesMorta = 0; }
     } else {
@@ -389,13 +443,13 @@
   /* ---------------- Calibração (premissa de 6000 coelhos) ---------------- */
   const _cacheCal = {};
   function calibrar(P) {
-    const chave = [P.area_ha, P.K_referencia, P.grama_max, P.chuva_primavera_mm, P.chuva_verao_mm, P.chuva_outono_mm, P.chuva_inverno_mm, P.arbusto_regen, P.arbusto_estrutura_ini].join('|');
+    const chave = [P.estacoes, P.area_ha, P.K_referencia, P.grama_max, P.arbusto_regen, P.arbusto_estrutura_ini].join('|');
     if (_cacheCal[chave]) return _cacheCal[chave];
     // A calibração usa a ilha PADRÃO (vegetação inicial padrão, chuva média),
     // assim cenários com menos arbustos ou mais grama mudam a capacidade real.
     const Pc = Object.assign({}, P, { grama_mult_ini: 1, arbusto_mult_ini: 1, grama_regen: 1, chuva_mult: 1 });
-    const bases = [Pc.chuva_primavera_mm, Pc.chuva_verao_mm, Pc.chuva_outono_mm, Pc.chuva_inverno_mm];
-    const climaMedio = (mo) => ({ chuva: bases[Math.floor(mo / 3)] / 3, intens: 0.45, T: PERFIL_T[mo] });
+    const RGc = regimeDe(Pc), bases = RGc.chuva;
+    const climaMedio = (mo) => ({ chuva: bases[Math.floor(mo / 3)] / 3, intens: 0.45, T: RGc.T[mo] });
     // "Spin-up": a ilha sem coelhos roda 8 anos de clima médio até um ciclo
     // anual estável; esse estado (início da primavera) é a condição inicial.
     const spinUp = (Gpot) => {
@@ -411,7 +465,12 @@
       const E = spinUp(Gpot).E;
       const stock = estoqueDigestivel(E, Pc.area_ha);
       let pv = 0, pb = 0;
-      for (let mo = 0; mo < 3; mo++) { const v = passoVegetacao(E, Pc, climaMedio(mo), mo, Gpot); pv += v.g * Pc.area_ha; pb += v.gb * Pc.area_ha; }
+      // a premissa vale para a estação chuvosa principal do regime (média)
+      const m0 = RGc.principal * 3;
+      for (let mo = 0; mo < m0; mo++) passoVegetacao(E, Pc, climaMedio(mo), mo, Gpot);
+      const stockP = estoqueDigestivel(E, Pc.area_ha);
+      for (let mo = m0; mo < m0 + 3; mo++) { const v = passoVegetacao(E, Pc, climaMedio(mo), mo, Gpot); pv += v.g * Pc.area_ha; pb += v.gb * Pc.area_ha; }
+      return capacidade(stockP, pv, pb, 3);
       return capacidade(stock, pv, pb, 3);
     };
     let g0 = 50, g1 = 400, k0 = Kprim(g0), k1 = Kprim(g1);
@@ -591,7 +650,7 @@
         arvRegen: r3(E.arvViva ? E.V * Math.exp(-(st.N / A) / 4) : 0), arvViva: E.arvViva, arvCons: a ? r1(a.consArv) : 0,
         cobertura: r3(cobertura(E)), MO: r3(E.OM), crosta: r3(E.C), erosaoAcum: r1(E.erosaoAcum), erosao: a ? r2(a.erosao) : 0,
         prof: r2(E.prof), CRA: r1(E.WHC), umidade: a && a.nI ? r3(a.somaUmid / a.nI) : r3(E.umid), soloSaude: r3(saudeSolo()),
-        chuva: a ? r1(a.chuva) : 0, T: a && a.nI ? r1(a.somaT / a.nI) : PERFIL_T[0],
+        chuva: a ? r1(a.chuva) : 0, T: a && a.nI ? r1(a.somaT / a.nI) : regimeDe(P).T[0],
         eventosClima: a ? a.eventos : [],
         indAlim: a && a.nI ? r3(a.somaI / a.nI) : 1, dieta,
         alimDisp: r1(estoqueDigestivel(E, A) / 1000),
@@ -615,6 +674,7 @@
     registrar(0, 1, 0, cal.K0 * (P.K_referencia > 0 ? 1 : 0), { inicial: true });
 
     const coef = P.endogamia_mult;
+    const RG = regimeDe(P);
     const m0 = 1 - Math.pow(1 - P.mort_adulto_anual, 1 / 12);
     let maleIdx = new Int32Array(1024);
     let mesExtincao = null, primeiraNinhada = null;
@@ -666,23 +726,23 @@
       const sens = P.sobrepastejo_sens;
       // Estresse de pastejo acumulado (memória de vários meses): a planta tolera
       // desfolha intensa por pouco tempo, mas perde raízes se ela se repete.
-      E.Z = 0.8 * (E.Z || 0) + Math.max(0, d - 0.4) * (mo < 6 ? 1 : 0.5);
+      E.Z = 0.8 * (E.Z || 0) + Math.max(0, d - 0.4) * (RG.crescB[mo] ? 1 : 0.5);
       if (E.Z > 0.5) E.R -= sens * 0.035 * (E.Z - 0.5);
       // rebrota vegetativa: proporcional às raízes VIVAS (logística) + expansão lenta a partir dos refúgios;
       // uma grama muito degradada não volta sozinha só porque chegou a primavera
-      if (mo < 6) E.R += P.grama_regen * veg.W * (0.20 * E.R * (1 - E.R) + 0.02 * (1 - E.R)) * (1 - Math.min(1, d));
-      if ((mo <= 2) || ((mo === 6 || mo === 7) && veg.W > 0.4)) {
+      if (RG.crescB[mo]) E.R += P.grama_regen * veg.W * (0.30 * E.R * (1 - E.R) + 0.03 * (1 - E.R)) * (1 - Math.min(1, d));
+      if (RG.germB[mo] && veg.W > 0.3) {
         const rec = P.grama_regen * 0.08 * E.S * veg.W * (1 - E.R) * (1 - Math.min(1, d));
         E.R += rec; E.S -= rec * 0.5;
       }
-      if (mo >= 6 && E.Gg + E.Gd < 80 && N0 > 0) E.R -= 0.015 * sens * Math.min(1, (N0 / A) / 10);
+      if (!RG.crescB[mo] && E.Gg + E.Gd < 80 && N0 > 0) E.R -= 0.015 * sens * Math.min(1, (N0 / A) / 10);
       E.R = clamp(E.R, REFUGIO, 1); // refúgios (penhascos, matagal denso) mantêm coroas vivas
-      if (mo >= 2 && mo <= 4) { const sp = 0.22 * E.R * Math.pow(Math.max(0, 1 - d / 0.6), 2) * veg.W; E.S += sp * (1 - E.S); }
+      if (RG.florB[mo]) { const sp = 0.22 * E.R * Math.pow(Math.max(0, 1 - d / 0.6), 2) * veg.W; E.S += sp * (1 - E.S); }
       E.S *= 0.985;
       const capB = 0.1 * E.Hs;
-      if (mo < 6 && E.Hb < 0.15 * capB && N0 > 0) { const dm = E.Hs * 0.005 * sens; E.Hs -= dm; E.Hdead += dm; acc.arbMort += dm; }
-      if (mo < 3) { // recrutamento de novos arbustos (banco de sementes do solo; plântulas comidas em alta densidade)
-        const rec = (0.0015 * E.Hs + 1.5 * Math.min(1, E.prof / 15)) * P.arbusto_regen * veg.W * Math.exp(-(N0 / A) / 6) * Math.max(0, 1 - E.Hs / 1800);
+      if (RG.crescB[mo] && E.Hb < 0.15 * capB && N0 > 0) { const dm = E.Hs * 0.005 * sens * Math.min(1, (N0 / A) / 8); E.Hs -= dm; E.Hdead += dm; acc.arbMort += dm; }
+      if (RG.germB[mo]) { // recrutamento de novos arbustos (banco de sementes do solo; plântulas comidas em alta densidade)
+        const rec = (0.003 * E.Hs + 3 * Math.min(1, E.prof / 15)) * P.arbusto_regen * veg.W * Math.exp(-(N0 / A) / 10) * Math.max(0, 1 - E.Hs / 1800);
         E.Hs += rec; E.Hb += 0.05 * rec; acc.arbCresc += rec;
       }
       const falta = 1 - Itot;
@@ -716,7 +776,10 @@
       /* 5b. predação: resposta funcional tipo II sobre coelhos "vulneráveis".
          Jovens e coelhos em má condição são mais vulneráveis; a cobertura
          vegetal (grama + arbustos) protege conforme o tipo de predador. */
-      chegadas.forEach(c => { if (c.mes === m) { const st0 = E.pred[c.tipo]; st0.n += c.n; st0.f += Math.floor(c.n / 2) + (c.n % 2 && rng() < 0.5 ? 1 : 0); st0.chegou = true; E.pred[c.tipo].extinto = false; acc.eventos.push({ mes: mo % 3, tipo: 'chegada_' + c.tipo }); } });
+      chegadas.forEach(c => { if (c.mes === m) { const st0 = E.pred[c.tipo], Tc = PRED_TIPOS[c.tipo]; let fem = Math.floor(c.n / 2) + (c.n % 2 && rng() < 0.5 ? 1 : 0);
+        // introduzidos ocupam territórios livres; o excedente vira flutuante
+        const vagas = Tc.migra ? c.n : Math.max(0, capTerritorio(Tc, P) - st0.n), entram = Math.min(vagas, c.n);
+        const femT = Math.min(fem, Math.ceil(entram / 2)); st0.n += entram; st0.f += femT; st0.flut += c.n - entram; st0.flutF += fem - femT; st0.chegou = true; E.pred[c.tipo].extinto = false; acc.eventos.push({ mes: mo % 3, tipo: 'chegada_' + c.tipo }); } });
       let lamJ = 0, lamA = 0;
       const predEaten = {};                 // coelhos-equivalentes REALMENTE comidos (preenchido na mortalidade)
       const lamPor = [];                    // [tipo, λ para jovens, λ para adultos] — para atribuir cada morte a um predador
@@ -725,6 +788,9 @@
       if (tiposAtivos.length && N0 > 0) {
         let SJ = 0, SA = 0;
         for (let i = 0; i < N0; i++) { const cf = 1 + 0.8 * Math.max(0, 0.8 - pop.cond[i]); if (pop.idade[i] < P.maturidade_meses) SJ += cf; else SA += cf; }
+        // refúgio: com poucos coelhos, quase todos ficam junto às tocas, fora do alcance da maioria dos predadores
+        const nRef = P.refugio_tocas * A * clamp(E.prof / 20, 0.2, 1);
+        const fracExposta = N0 > 0 ? Math.max(0, 1 - nRef / N0) : 0;
         const arbRel = clamp(E.Hs / E.Hs0, 0, 1);
         let totK = 0;
         const Ks = {};
@@ -732,7 +798,8 @@
           const T = PRED_TIPOS[t], st = E.pred[t];
           const expo = 1 - T.prot * (0.6 * cov + 0.4 * arbRel);
           const Wt = T.juv * SJ + SA;
-          const Dv = Wt / A * expo;
+          const exposta = 1 - (1 - fracExposta) * (T.entraToca ? 0.3 : 1);   // arminho entra nas tocas
+          const Dv = Wt / A * expo * exposta;
           // Holling tipo III: k = kmax·D²/(D² + h²), com h² = kmax/(a) — a eficiência de caça multiplica a taxa de ataque a
           const h2 = T.h * T.h / Math.max(0.05, P.pred_eficiencia);
           // O limite de manuseio é de BIOMASSA (coelhos-equivalentes), não de número de presas:
@@ -752,7 +819,7 @@
         const cap = 0.6 * N0, esc = totK > cap ? cap / totK : 1;
         tiposAtivos.forEach(t => {
           const k = Ks[t], K = k.K * esc;
-          const lam = k.Wt > 0 ? K / k.Wt : 0;
+          const lam = k.Wt > 0 ? K / k.Wt : 0;   // K já considera só a fração exposta; λ é distribuído por todos
           lamJ += lam * k.T.juv; lamA += lam;
           lamPor.push([t, lam * k.T.juv, lam]);
           predEaten[t] = 0;
@@ -805,14 +872,14 @@
       /* 5c. dinâmica dos predadores (alimentação, mortes, nascimentos, migração) */
       Object.keys(E.pred).forEach(t => {
         const T = PRED_TIPOS[t], st = E.pred[t];
-        const altSaz = [1.0, 1.1, 0.85, 0.6][s];   // aves e insetos são escassos no inverno
+        const altSaz = RG.altSaz[s];   // aves e insetos variam com a estação
         const aT = Math.min(0.95, T.alt * P.presas_alt);
         if (T.migra) {
           if (!st.chegou) return;
           // mesma exposição usada na caça (grama + arbustos), densidade realista por km²
           const expo = 1 - T.prot * (0.6 * cov + 0.4 * clamp(E.Hs / E.Hs0, 0, 1));
           const Dv = (N0 / A) * expo;
-          const alvo = T.max * (A / 100) * P.pred_territorio * Dv * Dv / (Dv * Dv + T.h * T.h) * [0.7, 0.5, 1.0, 1.3][s];
+          const alvo = T.max * (A / 100) * P.pred_territorio * Dv * Dv / (Dv * Dv + T.h * T.h) * RG.rapSaz[s];
           const delta = (alvo - st.n) * 0.3 + (rng() - 0.5);
           st.n = Math.max(0, Math.round(st.n + delta));
           st.I = st.n > 0 ? Math.min(1.3, ((predEaten[t] || 0) + aT * altSaz * T.need * st.n) / (T.need * frioPred * st.n)) : 0;
@@ -831,7 +898,8 @@
         const mFome = st.c < 0.55 ? T.fome * Math.pow((0.55 - st.c) / 0.55, 1.2) : 0;
         const pmA = Math.min(1, mBase + mFome);
         const pmF = Math.min(1, 1.6 * mBase + 1.3 * mFome);                                  // flutuantes: sem território, mais expostos
-        const pmJ = Math.min(1, 2 * mBase + (st.I < 0.85 ? 0.7 * (0.85 - st.I) / 0.85 : 0)); // filhotes morrem primeiro
+        // cuidado parental: os pais gastam as próprias reservas alimentando a cria; os filhotes só passam fome quando os pais já estão magros
+        const pmJ = Math.min(1, 2 * mBase + (st.c < 0.7 ? 0.6 * (0.7 - st.c) / 0.7 : 0) + (st.I < 0.4 ? 0.3 * (0.4 - st.I) / 0.4 : 0));
         let dA = 0, dF = 0, dJ = 0;
         // mortes de adultos (cada morte é de fêmea com probabilidade f/n)
         for (let k = 0; k < Pn; k++) if (rng() < pmA) { dA++; if (rng() < st.f / Math.max(1, st.n)) st.f--; st.n--; }
@@ -875,6 +943,8 @@
       for (let i = 0; i < n1; i++) pop.idade[i]++;
       if (nM > 0 && nF > 0) {
         const mate = 1 - Math.exp(-12 * nM / nF);
+        // estresse social em alta densidade reduz ovulação e sobrevivência das ninhadas (Rödel et al. 2004)
+        const densRep = 1 / (1 + Math.pow((n1 / A) / Math.max(1, P.estresse_densidade), 2));
         const tocas = capacidadeTocas(P, E);
         const fracToca = Math.min(1, tocas / nF);
         const flood = (cm.chuva > 100 && cm.intens > 0.5) ? 0.75 : 1;
@@ -887,7 +957,7 @@
           const nutr = clamp((greenOnly - 0.05) / 0.3, 0, 1) * clamp((c - 0.55) / 0.3, 0, 1);
           const ageF = age < 6 ? 0.7 : age > 48 ? 0.7 : 1;
           const temToca = rng() < fracToca;
-          const p = P.fertilidade * P.reproducao_mult * FOTOPERIODO[mo] * nutr * mate * ageF * (temToca ? 1 : 0.6);
+          const p = P.fertilidade * P.reproducao_mult * RG.foto[mo] * nutr * mate * ageF * densRep * (temToca ? 1 : 0.6);
           if (rng() >= p) continue;
           const pReabs = 0.07 + 0.6 * Math.pow(1 - clamp(c / 0.95, 0, 1), 1.5);
           if (rng() < pReabs) { acc.reabs++; continue; }
@@ -948,6 +1018,7 @@
     const res = {
       versao: VERSAO, gerado: null, parametros: P, calibracao: { Gpot: r1(cal.Gpot), K0: Math.round(cal.K0), aporteRef: r2(cal.aporteRef) },
       estacoes: ESTACOES, causas: CAUSAS, registros, mensal,
+      regime: { id: P.estacoes in REGIMES ? P.estacoes : 'brasil', nome: RG.nome, curto: RG.curto, chuva: RG.chuva.map(v => v * P.chuva_mult), principal: RG.principal, desc: RG.desc },
       clima: clima.anual.map((a, y) => ({ ano: y + 1, multPrim: r3(a.multPrim), mult: a.mult.map(r3), anomT: r2(a.anomT) })),
       genealogia, mesExtincao, primeiraNinhada, surtosTotal
     };
@@ -960,6 +1031,7 @@
   /* ---------------- Pós-processamento ---------------- */
   function tabelaAnual(res) {
     const R = res.registros, out = [];
+    const princ = res.regime ? res.regime.principal : 0;
     for (let y = 1; y <= res.parametros.anos; y++) {
       const rs = R.filter(r => r.ano === y && !r.inicial);
       if (!rs.length) continue;
@@ -967,7 +1039,7 @@
       out.push({
         ano: y,
         chuva: r1(rs.reduce((a, r) => a + r.chuva, 0)),
-        chuvaPrim: rs[0].chuva,
+        chuvaPrim: (rs.find(r => r.est === princ) || rs[0]).chuva,
         multPrim: res.clima[y - 1].multPrim,
         T: r1(rs.reduce((a, r) => a + r.T, 0) / rs.length),
         Nmax: Math.max(...rs.map(r => r.N)), Nmin: Math.min(...rs.map(r => r.N)), Nfim: fim.N,
@@ -976,7 +1048,7 @@
         R: fim.R, arbustos: fim.Hs, arbCond: fim.arbCond, arvore: fim.arvSaude, arvViva: fim.arvViva,
         solo: fim.soloSaude, erosao: r1(rs.reduce((a, r) => a + r.erosao, 0)),
         alimento: r3(rs.reduce((a, r) => a + r.indAlim, 0) / rs.length),
-        Kprim: rs[0].K, Ksust: fim.Ksust,
+        Kprim: (rs.find(r => r.est === princ) || rs[0]).K, Ksust: fim.Ksust,
         F: fim.F, He: fim.He, Ne: fim.NeHarm, ger: fim.gerMax, saude: fim.saude
       });
     }
@@ -1026,7 +1098,7 @@
     // seca mais longa
     let run = 0, runMax = 0, runIni = 0, cur = 0;
     res.clima.forEach((c, y) => { if (c.multPrim < 0.9) { if (run === 0) cur = y; run++; if (run > runMax) { runMax = run; runIni = cur; } } else run = 0; });
-    if (runMax >= 2) add(runIni * 4 + 1, 'seca', `Seca de ${runMax} primaveras seguidas`, `Do ano ${runIni + 1} ao ano ${runIni + runMax}, todas as primaveras tiveram menos de 90% da chuva média.`, '☀️', 'alerta', ['chuva']);
+    if (runMax >= 2) add(runIni * 4 + 1, 'seca', `Seca: ${runMax} anos seguidos`, `Do ano ${runIni + 1} ao ano ${runIni + runMax}, a estação chuvosa principal teve menos de 90% da chuva média.`, '☀️', 'alerta', ['chuva']);
     i = find(r => r.Fnasc !== null && r.Fnasc >= 0.2);
     if (i > 0) add(i, 'endogamia', 'Primeiro sinal de endogamia', `Os filhotes nascidos tinham coeficiente de endogamia médio F = ${R[i].Fnasc.toFixed(2)} (equivalente a cruzamento entre irmãos).`, '🧬', 'alerta', ['consanguinidade']);
     i = find(r => r.surto);
@@ -1105,11 +1177,11 @@
     out.push({ q: 'A ilha conseguiu recuperar a vegetação depois de uma superpopulação?', a: eR ? `Sim, parcialmente: ${eR.texto} (${noEst(R[eR.i])}).` : (Math.min(...R.map(r => r.R)) >= 0.6 ? 'A vegetação não chegou a degradar a ponto de precisar de recuperação.' : 'Não: após a degradação, o vigor da grama não voltou acima de 85%.') });
     // 10
     const Kp = res.anual.map(a => a.Kprim);
-    out.push({ q: 'A capacidade de suporte caiu em relação aos 6.000 iniciais?', a: `A capacidade da primavera foi de ${fmt(Kp[0])} no ano 1 e de ${fmt(Kp[Kp.length - 1])} no ano ${Kp.length}. A capacidade sustentável anual (gargalo do ano) terminou em ${fmt(S.final.Ksust)}.` });
+    out.push({ q: 'A capacidade de suporte caiu em relação aos 6.000 iniciais?', a: `A capacidade da estação chuvosa principal foi de ${fmt(Kp[0])} no ano 1 e de ${fmt(Kp[Kp.length - 1])} no ano ${Kp.length}. A capacidade sustentável anual (gargalo do ano) terminou em ${fmt(S.final.Ksust)}.` });
     // 11
     let falha = null;
     res.anual.forEach((a, k) => { if (k > 0 && a.multPrim >= 1.1 && a.Nfim <= res.anual[k - 1].Nfim && res.anual[k - 1].Nfim > 0) falha = falha || a; });
-    out.push({ q: 'Houve algum momento em que uma primavera chuvosa não conseguiu recuperar a população?', a: falha ? `Sim: no ano ${falha.ano} a primavera teve ${pct(falha.multPrim)} da chuva média, mas a população terminou o ano com ${fmt(falha.Nfim)} (sem crescimento), porque a vegetação estava degradada (vigor ${pct(falha.R)}).` : 'Não foi identificado um ano com primavera chuvosa (≥110%) seguido de população estagnada ou em queda.' });
+    out.push({ q: 'Houve algum momento em que uma estação chuvosa farta não conseguiu recuperar a população?', a: falha ? `Sim: no ano ${falha.ano} a estação chuvosa teve ${pct(falha.multPrim)} da chuva média, mas a população terminou o ano com ${fmt(falha.Nfim)} (sem crescimento), porque a vegetação estava degradada (vigor ${pct(falha.R)}).` : 'Não foi identificado um ano com estação chuvosa farta (≥110%) seguido de população estagnada ou em queda.' });
     // 12
     const ultG = R.filter(r => r.F !== null).pop() || R[0];
     const fF = ultG.F, mE = S.mcTot.endogamia;
@@ -1264,7 +1336,7 @@
   }
 
   return {
-    VERSAO, ESTACOES, PADRAO, PARAM_META, CENARIOS, CENARIOS_PRED, FUNDADORES_ALT, CAUSAS, PRED_TIPOS,
+    VERSAO, ESTACOES, REGIMES, PADRAO, PARAM_META, CENARIOS, CENARIOS_PRED, FUNDADORES_ALT, CAUSAS, PRED_TIPOS,
     simular, monteCarlo, resumirMC, linhaMC, compactar, truncar, repCompacto, mcDeReps, analisar, csvSazonal, csvAnual,
     _interno: { gerarClima, calibrar, mulberry32, estadoInicial, passoVegetacao }
   };
