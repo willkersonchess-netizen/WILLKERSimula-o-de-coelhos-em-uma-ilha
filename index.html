@@ -411,7 +411,7 @@
       <div><b>Monte Carlo</b>Repetir a simulação muitas vezes com sortes diferentes para saber o quão provável é cada resultado.</div>
       <div><b>Predação tipo III</b>Predadores caçam pouco uma presa rara (trocam por outras) e muito uma presa abundante.</div>
       <div><b>Hiperpredação</b>Presas alternativas mantêm os predadores vivos, e eles seguem caçando a presa principal mesmo quando ela é rara.</div>
-      <div><b>Território</b>Cada predador adulto precisa de uma área própria; numa ilha pequena cabem poucos. Jovens sem território morrem.</div>
+      <div><b>Território e flutuantes</b>Cada predador adulto precisa de uma área própria; numa ilha pequena cabem poucos. Jovens sem território viram "flutuantes": não se reproduzem, morrem mais e ocupam as vagas quando um adulto morre.</div>
     </div>
     <details class="mais"><summary>Estrutura, alimentação, reprodução e genética</summary>
       <div class="grid g2">
@@ -430,19 +430,21 @@ ninhada ~ Poisson(5 · (0,7+0,3·cond) · e^(−B_fec·F_mãe))
 ninho = 0,82 · cond^0,7 · hidratação · enchente · toca · frio · e^(−B_juv·F)
 P(morte/mês) = 1 − Π(1 − risco_k)</div>
           <p>Riscos: fome, desidratação, doença endêmica, surto, idade, clima, basal e predação. Mixomatose e doença hemorrágica viral não foram incluídas (precisam ser trazidas de fora). Genética: herança explícita em 48 loci; depressão endogâmica por equivalentes letais (2B = 3,14, Ralls et al. 1988).</p>
-          <h3>Verificação de realismo (motor v2.2)</h3>
+          <h3>Verificação de realismo (motor v2.3)</h3>
           <ul><li>Crescimento no 1º ano: ~14× (casal → ~30 coelhos), compatível com introduções históricas.</li><li>Idade mediana de morte ~19 meses; máxima ~5–6 anos; razão sexual 50%.</li><li>Filhotes emergidos que sobrevivem ao 1º ano: ~60% (sem predadores).</li><li>Fêmeas: ~2,5 ninhadas registradas/ano em anos bons (literatura: 3–5; a contagem inclui fêmeas recém-amadurecidas).</li></ul>
         </div>
       </div>
     </details>
     <details class="mais"><summary>Predadores: como foram modelados</summary>
       <div class="cartao">
-<div class="eq">mortes/predador adulto/mês = necessidade · 1,25 · Dv² / (Dv² + h²)      (resposta funcional tipo III)
+<div class="eq">presas mortas/caçador/mês = kmax · Dv² / (Dv² + h²/eficiência) / interferência     (Holling tipo III)
+kmax = 1,25 · necessidade · frio / massa média da presa   — limite de manuseio em BIOMASSA (filhote = 0,4 adulto)
 Dv = coelhos vulneráveis por ha × (1 − proteção · cobertura vegetal)
-ingestão = (coelhos comidos + presas alternativas) / necessidade (adultos + 0,35 × filhotes)
+interferência = 1 + 0,5 · max(0, (adultos + flutuantes)/território − 1)     (Beddington–DeAngelis)
+cada coelho morto por predação é atribuído a uma espécie e alimenta só ela (balanço de massa)
+ingestão = (coelhos comidos + presas alternativas × sazonalidade) / necessidade (adultos + flutuantes + 0,35 × filhotes)
 condição += 0,3 · (ingestão − condição)    — reservas: semanas de jejum são toleradas
-morte de adultos: basal + fome se condição &lt; 0,55 · filhotes morrem primeiro quando falta comida
-filhotes viram adultos após "matur" meses, se houver território livre (máx. de adultos por km²)</div>
+adultos territoriais (com sexo) · flutuantes sem território (não se reproduzem, morrem 1,6× mais) · filhotes dependentes</div>
         <p>Por que predadores morrem numa ilha pequena: uma ilha de 100 ha (1 km²) tem espaço para poucos adultos (gatos ~8/km², raposas ~2/km²). Populações tão pequenas se extinguem por azar, e predadores que só comem coelhos morrem de fome depois de derrubar a população. As <b>presas alternativas</b> (aves, insetos, lagartos) e o <b>tamanho da ilha</b> mudam isso: teste na Central de experimento ou no Laboratório. Aves de rapina não se reproduzem na ilha: chegam e partem conforme a oferta de coelhos.</p>
         <div class="tabela-box" style="max-height:none"><table>
           <thead><tr><th class="l">Predador</th><th>Necessidade (coelhos/mês)</th><th>h (coelhos/ha)</th><th>Pref. por jovens</th><th>Proteção da vegetação</th><th>Presas alternativas</th><th>Adultos/km²</th><th class="l">Reprodução</th></tr></thead>

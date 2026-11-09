@@ -293,7 +293,7 @@
       { rotulo: 'F dos filhotes nascidos', dados: col('Fnasc'), cor: C.femea, tracejado: true }], fmtV: fmt3 }));
     grafico('gHe', baseSaz({ yMin: 0, yMax: 1.05, fmtY: (v) => v.toFixed(1).replace('.', ','), series: [
       { rotulo: 'Heterozigosidade relativa (He/He₀)', dados: col('He'), cor: C.gene, largura: 2.4 },
-      { rotulo: 'Alelos fundadores restantes (fração de 4)', dados: col(null, r => r.alelos === null ? null : r.alelos / 4), cor: C.sand }], fmtV: fmt3 }));
+      { rotulo: 'Alelos fundadores restantes (fração)', dados: col(null, r => r.alelos === null ? null : r.alelos / (r.alelosMax || 4)), cor: C.sand }], fmtV: fmt3 }));
     grafico('gNe', baseSaz({ log: true, rotuloY: 'indivíduos', series: [
       { rotulo: 'Ne demográfico', dados: col('Ne'), cor: C.gene },
       { rotulo: 'Ne (média harmônica acumulada)', dados: col('NeHarm'), cor: C.sand, tracejado: true },
@@ -760,7 +760,7 @@
     const mE = RES.resumo.mcTot.endogamia, tot = RES.resumo.mortes;
     $('geneCards').innerHTML = `
       <div class="cartao"><h3>Endogamia</h3><div class="mono" style="font-size:1.6rem">${fmt3(ult.F)}</div><p class="sub">F médio ${RES.resumo.extinta ? 'no último registro com coelhos' : 'ao final'} (máximo ${fmt3(Fmax)}). ${iF2 > 0 ? `F dos recém-nascidos passou de 0,2 ${quando(iF2)}.` : ''}</p></div>
-      <div class="cartao"><h3>Diversidade</h3><div class="mono" style="font-size:1.6rem">${pct(ult.He)}</div><p class="sub">da heterozigosidade inicial (mínimo ${pct(minHe)}). ${fmt2(ult.alelos)} de 4 alelos fundadores restam por locus, em média.</p></div>
+      <div class="cartao"><h3>Diversidade</h3><div class="mono" style="font-size:1.6rem">${pct(ult.He)}</div><p class="sub">da heterozigosidade inicial (mínimo ${pct(minHe)}). ${fmt2(ult.alelos)} de ${ult.alelosMax || 4} alelos fundadores restam por locus, em média.</p></div>
       <div class="cartao"><h3>Custo da consanguinidade</h3><div class="mono" style="font-size:1.6rem">${fmt(mE)}</div><p class="sub">mortes de filhotes atribuídas à depressão endogâmica (${pct(mE / Math.max(1, tot))} de todas as mortes). Com 2B = 3,14, um filhote com F = 0,25 tem ${pct(1 - Math.exp(-1.57 * 0.25 * RES.parametros.endogamia_mult))} a mais de risco no ninho.</p></div>
       <div class="cartao span2" style="grid-column:1/-1"><h3>Em linguagem simples</h3><p class="sub" style="margin:0">Cada coelho tem duas cópias de cada gene, uma da mãe e uma do pai. Quando as duas cópias vêm do mesmo ancestral, defeitos recessivos que ficavam "escondidos" aparecem, e é por isso que filhos de parentes morrem mais. Como todos aqui descendem de dois animais, a consanguinidade chega a ~25% já na segunda geração. Depois, numa população grande, ela sobe devagar. Quando a população despenca (gargalo), poucos sobreviventes passam seus genes adiante e F volta a subir rápido.</p></div>`;
   }
@@ -927,10 +927,19 @@
       { rotulo: 'Com ' + sel.curto.toLowerCase(), dados: sel.serie.N, cor: C.pop, largura: 2 }] }));
     const tipos = Object.keys(sel.serie.predPor || {});
     grafico('gPredN', baseSaz({ _sazonal: true, onClick: null, rotuloY: 'predadores', fmtY: (v) => Math.round(v).toString(), series: tipos.map(t => ({ rotulo: T[t].nome, dados: sel.serie.predPor[t], cor: COR_PRED[t], largura: 2 })) }));
-    const melhor = pc.reduce((a, b) => b.mc.pExtincao < a.mc.pExtincao ? b : a);
-    const pior = pc.reduce((a, b) => b.mc.pExtincao > a.mc.pExtincao ? b : a);
-    $('predLicao').innerHTML = `<h3>💡 O que os predadores ensinam</h3><p class="pp" style="margin-top:8px">Parece estranho, mas <b>predadores podem salvar os coelhos</b>. Sem predadores, os coelhos se multiplicam até destruir o pasto e depois morrem de fome (chance de sumirem: ${pct(base.mc.pExtincao)}). Com <b>${esc(melhor.curto.toLowerCase())}</b>, a explosão é freada, o pasto sobrevive e a chance cai para <b>${pct(melhor.mc.pExtincao)}</b>.</p>
-      <p class="small muted">Por outro lado, predadores que dependem só dos coelhos (como ${esc(pior.curto.toLowerCase())}: ${pct(pior.mc.pExtincao)}) costumam morrer de fome depois de derrubar a população e deixam a história se repetir. As aves de rapina funcionam bem neste modelo porque chegam e partem conforme a oferta de coelhos, sem precisar sobreviver na ilha nos anos ruins. Esse é o mecanismo de "regulação por predadores" estudado em populações de coelhos na Austrália (Pech et al. 1992).</p>`;
+    // compara só cenários com a mesma ilha (100 ha); a ilha maior é comparada com a ilha maior sem predadores
+    const mesmaIlha = pc.filter(c => !c.p.area_ha);
+    const melhor = mesmaIlha.reduce((a, b) => b.mc.pExtincao < a.mc.pExtincao ? b : a, mesmaIlha[0] || pc[0]);
+    const pior = mesmaIlha.reduce((a, b) => b.mc.pExtincao > a.mc.pExtincao ? b : a, mesmaIlha[0] || pc[0]);
+    const grande = pc.find(c => c.p.area_ha), grandeSem = (D.cenarios || []).find(c => c.grupo === 'ambiente' && c.p.area_ha === (grande && grande.p.area_ha));
+    // texto gerado a partir dos resultados (não presume que predadores ajudam ou atrapalham)
+    const ajuda = melhor.mc.pExtincao < base.mc.pExtincao - 0.15;
+    const predVivo = pc.filter(c => c.mc.pPredSobrevive !== null && c.mc.pPredSobrevive >= 0.5);
+    const p1 = ajuda
+      ? `Parece estranho, mas <b>predadores podem salvar os coelhos</b>. Sem predadores, os coelhos se multiplicam até destruir o pasto e depois morrem de fome (chance de sumirem: ${pct(base.mc.pExtincao)}). Com <b>${esc(melhor.curto.toLowerCase())}</b>, a explosão é freada, o pasto sobrevive e a chance cai para <b>${pct(melhor.mc.pExtincao)}</b>.`
+      : `Nesta configuração, <b>nenhum predador impediu o colapso</b> (sem predadores, a chance de os coelhos sumirem é ${pct(base.mc.pExtincao)}; o melhor resultado com predadores foi ${pct(melhor.mc.pExtincao)}, com ${esc(melhor.curto.toLowerCase())}). A explosão dos coelhos destrói o pasto antes que os predadores consigam freá-la.`;
+    $('predLicao').innerHTML = `<h3>💡 O que os predadores ensinam</h3><p class="pp" style="margin-top:8px">${p1}</p>
+      <p class="small muted">Predadores que dependem quase só dos coelhos (como ${esc(pior.curto.toLowerCase())}: ${pct(pior.mc.pExtincao)}) costumam derrubar a população e depois morrer de fome: é o ciclo predador-presa de Lotka–Volterra. ${predVivo.length ? `Os predadores sobreviveram na maioria das repetições em: ${predVivo.map(c => esc(c.curto.toLowerCase())).join(', ')}.` : 'Em nenhum cenário os predadores sobreviveram na maioria das repetições: numa ilha de 1 km² cabem poucos predadores, e populações tão pequenas somem por fome ou por azar.'} ${grande && grandeSem ? `Numa ilha de ${grande.p.area_ha} ha, a chance de os coelhos sumirem é ${pct(grandeSem.mc.pExtincao)} sem predadores e ${pct(grande.mc.pExtincao)} com ${esc(grande.curto.toLowerCase())}: com mais espaço, predadores podem conviver com os coelhos e frear as explosões.` : 'Experimente a ilha maior na Central de experimento.'}</p>`;
   }
 
   /* ---------------- laboratório ---------------- */
@@ -961,7 +970,7 @@
     $('labRodar').addEventListener('click', () => { sincronizarCentral(); sincronizarDuracao(+$('labAnos').value); aplicarExperimento(true); });
     $('labReset').addEventListener('click', () => { resetLab(); $('labStatus').textContent = 'Valores originais restaurados (clique em Executar para rodar).'; });
   }
-  function fmtParam(m, v) { if (m.k === 'K_referencia') return fmt(v); if (m.k === 'chuva_vies') return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; return fmt2(v) + (m.un && m.un.startsWith('×') ? '×' : ''); }
+  function fmtParam(m, v) { if (m.k === 'K_referencia') return fmt(v); if (m.k === 'area_ha') return fmt(v) + ' ha'; if (m.k === 'pares_iniciais') return fmt(v) + (v === 1 ? ' casal' : ' casais'); if (m.k === 'chuva_vies') return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; return fmt2(v) + (m.un && m.un.startsWith('×') ? '×' : ''); }
   function resetLab() {
     Eng.PARAM_META.forEach(m => { const inp = $('par_' + m.k); inp.value = Eng.PADRAO[m.k]; inp.dispatchEvent(new Event('input')); });
     $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';

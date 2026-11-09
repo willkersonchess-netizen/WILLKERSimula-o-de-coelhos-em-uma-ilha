@@ -13,7 +13,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '2.2.0';
+  const VERSAO = '2.3.0';
   const ESTACOES = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
   /* ---------------- Perfis sazonais (12 meses, começando na primavera) ---- */
@@ -84,6 +84,11 @@
     surtos_doenca: true,
     fundadores: 'par_adulto',
     presas_alt: 1.0,        // disponibilidade de presas alternativas para os predadores (× padrão)
+    pred_eficiencia: 1.0,   // taxa de ataque (Holling): maior = caça melhor quando há poucos coelhos
+    pred_reproducao: 1.0,   // multiplica probabilidade de reprodução e tamanho da ninhada dos predadores
+    pred_mortalidade: 1.0,  // multiplica a mortalidade natural (não a fome) dos predadores
+    pred_territorio: 1.0,   // multiplica quantos adultos territoriais cabem por km²
+    pares_iniciais: 1,      // casais fundadores de coelhos (a premissa original é 1)
     predadores: []          // ex.: [{ tipo: 'gato', ano: 3, n: 4 }]
   };
 
@@ -95,11 +100,16 @@
     { k: 'grama_regen', rotulo: 'Regeneração da grama', min: 0.2, max: 2.5, passo: 0.1, un: '× padrão', grupo: 'Vegetação', desc: 'Velocidade de recuperação do vigor das raízes e do banco de sementes.' },
     { k: 'arbusto_regen', rotulo: 'Regeneração dos arbustos', min: 0.2, max: 2.5, passo: 0.1, un: '× padrão', grupo: 'Vegetação', desc: 'Rebrota de folhas, crescimento lenhoso e recrutamento.' },
     { k: 'sobrepastejo_sens', rotulo: 'Intensidade dos danos do sobrepastejo', min: 0.25, max: 3, passo: 0.25, un: '×', grupo: 'Vegetação', desc: 'Quanto o pastejo excessivo danifica raízes, arbustos e árvore.' },
+    { k: 'pares_iniciais', rotulo: 'Casais fundadores', min: 1, max: 10, passo: 1, un: 'casais', grupo: 'Coelhos', desc: 'A premissa original é 1 casal. Mais fundadores = mais diversidade genética e menos azar no início.' },
     { k: 'mort_mult', rotulo: 'Mortalidade natural', min: 0.5, max: 2, passo: 0.1, un: '× padrão', grupo: 'Coelhos', desc: 'Multiplica a mortalidade basal (acidentes, parasitas comuns).' },
     { k: 'reproducao_mult', rotulo: 'Taxa de reprodução', min: 0.5, max: 1.5, passo: 0.05, un: '× padrão', grupo: 'Coelhos', desc: 'Multiplica a probabilidade mensal de concepção.' },
     { k: 'agua_livre', rotulo: 'Disponibilidade de água doce', min: 0, max: 1, passo: 0.05, un: '0–1', grupo: 'Coelhos', desc: '0 = sem água livre (só a da forragem e da chuva); 1 = nascente permanente.' },
     { k: 'endogamia_mult', rotulo: 'Efeito da consanguinidade', min: 0, max: 4, passo: 0.25, un: '× padrão', grupo: 'Genética', desc: 'Multiplica os equivalentes letais (padrão 2B = 3,14 na sobrevivência juvenil).' },
-    { k: 'presas_alt', rotulo: 'Presas alternativas para predadores', min: 0, max: 1.5, passo: 0.1, un: '× padrão', grupo: 'Predadores', desc: 'Aves, insetos e lagartos que predadores comem além dos coelhos. 0 = só coelhos.' },
+    { k: 'presas_alt', rotulo: 'Presas alternativas para predadores', min: 0, max: 1.5, passo: 0.1, un: '× padrão', grupo: 'Predadores', desc: 'Aves, insetos e lagartos que predadores comem além dos coelhos (menos no inverno). 0 = só coelhos.' },
+    { k: 'pred_eficiencia', rotulo: 'Eficiência de caça', min: 0.25, max: 3, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Taxa de ataque da resposta de Holling: predadores mais eficientes continuam caçando quando os coelhos ficam raros.' },
+    { k: 'pred_reproducao', rotulo: 'Reprodução dos predadores', min: 0.25, max: 2, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Multiplica a chance de reproduzir e o tamanho da ninhada.' },
+    { k: 'pred_mortalidade', rotulo: 'Mortalidade natural dos predadores', min: 0.25, max: 2.5, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Acidentes, doenças e velhice (a fome é calculada à parte).' },
+    { k: 'pred_territorio', rotulo: 'Território dos predadores', min: 0.25, max: 3, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Quantos adultos territoriais cabem por km². Os excedentes viram flutuantes, que não se reproduzem e morrem mais.' },
     { k: 'area_ha', rotulo: 'Tamanho da ilha', min: 50, max: 1000, passo: 50, un: 'ha', grupo: 'Ilha', desc: 'A capacidade de referência continua 6.000: ilha maior = terra mais pobre por hectare e mais espaço para predadores.' },
     { k: 'K_referencia', rotulo: 'Capacidade de referência (primavera média)', min: 1000, max: 15000, passo: 500, un: 'coelhos', grupo: 'Ilha', desc: 'Premissa do experimento. O crescimento potencial da grama é calibrado a partir dela.' }
   ];
@@ -137,7 +147,7 @@
 
   /* ---------------- Predadores ----------------
      need   : coelhos-equivalentes adultos comidos por predador por mês, se só comesse coelhos
-     h      : densidade de meia-saturação (coelhos vulneráveis/ha) da resposta funcional tipo II
+     h      : densidade de meia-saturação (coelhos vulneráveis/ha) da resposta funcional tipo III (Holling)
      juv    : preferência relativa por coelhos jovens (< 4 meses)
      prot   : quanto a cobertura vegetal (grama alta + arbustos) protege os coelhos desse predador
      alt    : fração da necessidade que presas alternativas (aves marinhas, insetos, lagartos) podem suprir
@@ -145,15 +155,17 @@
      repro  : meses de nascimento (0 = 1º mês da primavera); ninhada e sobrevivência dos filhotes
      mort   : mortalidade basal anual; fome: mortalidade mensal extra quando a ingestão cai a 0
      dens   : máximo de adultos por km² (territorialidade); matur: meses até o filhote virar adulto
+     max    : (aves de rapina) máximo de indivíduos caçando por km² na melhor época
+     monogamo: forma casais (cada fêmea precisa do seu macho)
      migra  : aves de rapina não se reproduzem na ilha; vêm e vão conforme a oferta de presas */
   const PRED_TIPOS = {
     gato: { nome: 'Gato feral', icone: '🐈', need: 9, h: 0.6, juv: 2.5, prot: 0.6, alt: 0.75, altCap: 4, repro: [0, 1, 3, 4], pRepro: 0.65, ninhada: 4, sobrevFilhote: 0.6, mort: 0.2, fome: 0.5, dens: 8, matur: 6, migra: false,
       resumo: 'Caçador solitário e de emboscada. Prefere filhotes e coelhos jovens; também come aves e insetos, por isso pode persistir mesmo quando os coelhos ficam raros.' },
-    raposa: { nome: 'Raposa-vermelha', icone: '🦊', need: 14, h: 0.8, juv: 2, prot: 0.45, alt: 0.35, altCap: 1.5, repro: [0], pRepro: 0.8, ninhada: 4.5, sobrevFilhote: 0.6, mort: 0.3, fome: 0.6, dens: 2, matur: 7, migra: false,
+    raposa: { nome: 'Raposa-vermelha', icone: '🦊', need: 14, h: 0.8, juv: 2, prot: 0.45, alt: 0.35, altCap: 1.5, repro: [0], pRepro: 0.8, ninhada: 4.5, sobrevFilhote: 0.6, mort: 0.3, fome: 0.6, dens: 2, matur: 7, monogamo: true, migra: false,
       resumo: 'Predador grande, come mais por dia e cava ninhos. Uma ninhada por ano, na primavera. Depende muito de presas abundantes.' },
-    arminho: { nome: 'Arminho', icone: '🐾', need: 5, h: 0.5, juv: 4, prot: 0.15, alt: 0.45, altCap: 4, repro: [1], pRepro: 0.9, ninhada: 6, sobrevFilhote: 0.5, mort: 0.5, fome: 0.7, dens: 10, matur: 3, migra: false,
+    arminho: { nome: 'Arminho', icone: '🐾', need: 2.5, h: 0.5, juv: 4, prot: 0.15, alt: 0.45, altCap: 4, repro: [1], pRepro: 0.9, ninhada: 6, sobrevFilhote: 0.5, mort: 0.5, fome: 0.7, dens: 10, matur: 3, migra: false,
       resumo: 'Pequeno e ágil, entra nas tocas (a vegetação quase não protege os coelhos dele). Mata sobretudo filhotes. Vive pouco e se reproduz muito.' },
-    rapina: { nome: 'Aves de rapina', icone: '🦅', need: 6, h: 1.2, juv: 3, prot: 0.75, alt: 0.5, altCap: 0, max: 12, migra: true,
+    rapina: { nome: 'Aves de rapina', icone: '🦅', need: 6, h: 1.2, juv: 3, prot: 0.75, alt: 0.5, altCap: 0, max: 3, migra: true,
       resumo: 'Gaviões e águias que chegam voando. Não se reproduzem na ilha: o número acompanha a oferta de coelhos. Cobertura vegetal protege bem contra elas.' }
   };
 
@@ -212,7 +224,7 @@
       z = rho * z + Math.sqrt(1 - rho * rho) * normal(rng);
       const mult = [clamp(1 + P.chuva_vies + 0.17 * z, 0.70, 1.30)];
       for (let s = 1; s < 4; s++) mult.push(clamp(1 + 0.22 * (0.5 * z + 0.85 * normal(rng)), 0.45, 1.7));
-      const anomT = 0.6 * normal(rng);
+      const anomT = 0.6 * (-0.6 * z + 0.8 * normal(rng));   // primavera seca ⇒ ano mais quente (mais evaporação)
       for (let s = 0; s < 4; s++) {
         const total = bases[s] * mult[s] * P.chuva_mult;
         const pSeco = [0.06, 0.25, 0.08, 0.06][s];
@@ -443,7 +455,8 @@
     const n = pop.n, L = P.loci, mat = P.maturidade_meses;
     const pir = { M: [0, 0, 0, 0, 0, 0], F: [0, 0, 0, 0, 0, 0] };
     let machos = 0, femeas = 0, femRep = 0, machRep = 0, filhotes = 0, somaIdade = 0, somaF = 0, somaGer = 0, gerMax = 0;
-    const cnt = new Uint32Array(L * 4);
+    const NA = P._nAlelos || 4;   // alelos fundadores distintos por locus (2 por fundador)
+    const cnt = new Uint32Array(L * NA);
     for (let i = 0; i < n; i++) {
       const a = pop.idade[i], sx = pop.sexo[i];
       const c = a < 4 ? 0 : a < 12 ? 1 : a < 24 ? 2 : a < 36 ? 3 : a < 48 ? 4 : 5;
@@ -452,17 +465,17 @@
       if (a < mat) filhotes++;
       somaIdade += a; somaF += pop.F[i]; somaGer += pop.ger[i]; if (pop.ger[i] > gerMax) gerMax = pop.ger[i];
       const b = i * L * 2;
-      for (let l = 0; l < L; l++) { cnt[l * 4 + pop.alelos[b + 2 * l]]++; cnt[l * 4 + pop.alelos[b + 2 * l + 1]]++; }
+      for (let l = 0; l < L; l++) { cnt[l * NA + pop.alelos[b + 2 * l]]++; cnt[l * NA + pop.alelos[b + 2 * l + 1]]++; }
     }
     let He = null, alelos = null;
     if (n > 0) {
       let hs = 0, as = 0;
       for (let l = 0; l < L; l++) {
         let s2 = 0, pres = 0;
-        for (let a = 0; a < 4; a++) { const p = cnt[l * 4 + a] / (2 * n); s2 += p * p; if (cnt[l * 4 + a] > 0) pres++; }
+        for (let a = 0; a < NA; a++) { const p = cnt[l * NA + a] / (2 * n); s2 += p * p; if (cnt[l * NA + a] > 0) pres++; }
         hs += 1 - s2; as += pres;
       }
-      He = (hs / L) / 0.75; alelos = as / L;
+      He = (hs / L) / (1 - 1 / NA); alelos = as / L;
     }
     const Ne = machRep > 0 && femRep > 0 ? 4 * machRep * femRep / (machRep + femRep) : 0;
     return {
@@ -471,6 +484,9 @@
       He, alelos, Ne, pir
     };
   }
+
+  // adultos territoriais que cabem na ilha (mínimo de um casal)
+  function capTerritorio(T, P) { return Math.max(2, Math.round(T.dens * P.area_ha / 100 * P.pred_territorio)); }
 
   /* ---------------- SIMULAÇÃO PRINCIPAL ---------------- */
   function simular(entrada, opcoes) {
@@ -484,7 +500,7 @@
     const E = estadoInicial(P, cal);
     // predadores configurados (chegam no ano indicado)
     E.pred = {};
-    P.predadores.forEach(x => { if (!E.pred[x.tipo]) E.pred[x.tipo] = { n: 0, jov: [], c: 1, I: 1, chegou: false, extinto: false }; });
+    P.predadores.forEach(x => { if (!E.pred[x.tipo]) E.pred[x.tipo] = { n: 0, f: 0, flut: 0, flutF: 0, jov: [], c: 1, I: 1, chegou: false, extinto: false }; });
     const chegadas = P.predadores.map(x => ({ tipo: x.tipo, mes: (x.ano - 1) * 12, n: x.n }));
     const pop = novaPop(L);
     const genealogia = [];
@@ -503,9 +519,12 @@
     // Fundadores: alelos neutros distintos (0,1) e (2,3) em cada locus =>
     // homozigose em um locus significa identidade por descendência (IBD).
     const fund = P.fundadores;
-    const sexos = fund === 'dois_machos' ? [1, 1] : [1, 0];
+    const pares = fund === 'par_adulto' ? clamp(Math.round(P.pares_iniciais), 1, 20) : 1;
+    const sexos = [];
+    for (let k = 0; k < pares; k++) sexos.push(...(fund === 'dois_machos' ? [1, 1] : [1, 0]));
+    P._nAlelos = 2 * sexos.length;
     const idadeF = fund === 'dois_filhotes' ? 1 : 12;
-    for (let f = 0; f < 2; f++) {
+    for (let f = 0; f < sexos.length; f++) {
       const j = adicionar(sexos[f], idadeF, 0, -1, -1, 0, (fund === 'femea_infertil' && sexos[f] === 0) ? 0 : 1, 1.0, -1);
       for (let l = 0; l < L; l++) { pop.alelos[j * L2 + 2 * l] = 2 * f; pop.alelos[j * L2 + 2 * l + 1] = 2 * f + 1; }
     }
@@ -560,7 +579,7 @@
         idadeMedia: st.idadeMedia === null ? null : r1(st.idadeMedia), pir: st.pir,
         gerMedia: st.gerMedia === null ? null : r2(st.gerMedia), gerMax: st.gerMax,
         F: st.F === null ? null : r3(st.F), Fnasc: a && a.nNasc > 0 ? r3(a.sumFnasc / a.nNasc) : null,
-        He: st.He === null ? null : r3(st.He), alelos: st.alelos === null ? null : r2(st.alelos),
+        He: st.He === null ? null : r3(st.He), alelos: st.alelos === null ? null : r2(st.alelos), alelosMax: P._nAlelos,
         Ne: r1(st.Ne), NeHarm: neCnt ? r1(neCnt / neHarm) : 0,
         Gg: r1(E.Gg), Gd: r1(E.Gd), gramaCresc: a ? r1(a.prodVerde / A) : 0, gramaCons: a ? r1((a.consVerde + a.consSeca) / A) : 0,
         gramaDecomp: a ? r1(a.decomp) : 0, R: r3(E.R), S: r3(E.S),
@@ -581,8 +600,9 @@
         saude: r1(sh.total), saudeComp: { grama: r3(sh.grassScore), arbustos: r3(sh.shrubScore), arvore: r3(sh.treeScore), solo: r3(sh.soilScore), equilibrio: r3(sh.bal) },
         tocas: Math.round(capacidadeTocas(P, E)),
         surto: a ? a.surtoMeses > 0 : false,
-        pred: Object.fromEntries(Object.keys(E.pred).map(t => [t, E.pred[t].n + E.pred[t].jov.reduce((a, x) => a + x.n, 0)])),
-        predTotal: Object.values(E.pred).reduce((s, x) => s + x.n + x.jov.reduce((a, j) => a + j.n, 0), 0),
+        pred: Object.fromEntries(Object.keys(E.pred).map(t => [t, E.pred[t].n + E.pred[t].flut + E.pred[t].jov.reduce((a, x) => a + x.n, 0)])),
+        predTotal: Object.values(E.pred).reduce((s, x) => s + x.n + x.flut + x.jov.reduce((a, j) => a + j.n, 0), 0),
+        predDet: Object.fromEntries(Object.keys(E.pred).map(t => [t, { adultos: E.pred[t].n, femeas: E.pred[t].f, flutuantes: E.pred[t].flut, filhotes: E.pred[t].jov.reduce((a, x) => a + x.n, 0), cond: r2(E.pred[t].c) }])),
         predIngestao: Object.fromEntries(Object.keys(E.pred).map(t => [t, r2(E.pred[t].I)])),
         predNasc: a ? a.predNasc : 0, predMortes: a ? a.predMortes : 0
       };
@@ -648,7 +668,9 @@
       // desfolha intensa por pouco tempo, mas perde raízes se ela se repete.
       E.Z = 0.8 * (E.Z || 0) + Math.max(0, d - 0.4) * (mo < 6 ? 1 : 0.5);
       if (E.Z > 0.5) E.R -= sens * 0.035 * (E.Z - 0.5);
-      if (mo < 6) E.R += P.grama_regen * 0.05 * veg.W * (1 - E.R) * (1 - Math.min(1, d));
+      // rebrota vegetativa: proporcional às raízes VIVAS (logística) + expansão lenta a partir dos refúgios;
+      // uma grama muito degradada não volta sozinha só porque chegou a primavera
+      if (mo < 6) E.R += P.grama_regen * veg.W * (0.20 * E.R * (1 - E.R) + 0.02 * (1 - E.R)) * (1 - Math.min(1, d));
       if ((mo <= 2) || ((mo === 6 || mo === 7) && veg.W > 0.4)) {
         const rec = P.grama_regen * 0.08 * E.S * veg.W * (1 - E.R) * (1 - Math.min(1, d));
         E.R += rec; E.S -= rec * 0.5;
@@ -685,8 +707,8 @@
       const abrigo = clamp(0.35 * (E.arvViva ? E.Lc / P.arvore_folhas_max : Math.max(0, 1 - E.mesesMorta / 36) * 0.3) + 0.65 * clamp(E.Hs / E.Hs0, 0, 1), 0, 1);
       // surtos de doença endêmica dependentes da densidade
       if (E.surto > 0) { E.surto--; acc.surtoMeses++; }
-      else if (P.surtos_doenca && dens > 20) {
-        const pS = 0.004 * Math.pow(dens / 20 - 1, 1.5) * (Itot < 0.8 ? 2 : 1);
+      else if (P.surtos_doenca && dens > 15) {
+        const pS = 0.012 * Math.pow(dens / 15 - 1, 1.2) * (Itot < 0.8 ? 2 : 1);
         if (rng() < pS) { E.surto = 2 + Math.floor(rng() * 2); E.surtoInt = 0.06 + 0.09 * rng(); acc.eventos.push({ mes: mo % 3, tipo: 'surto' }); surtosTotal++; acc.surtoMeses++; }
       }
       const coccid = Math.min(0.3, 0.035 * (dens / 25) * (0.6 + 0.8 * veg.W));
@@ -694,10 +716,12 @@
       /* 5b. predação: resposta funcional tipo II sobre coelhos "vulneráveis".
          Jovens e coelhos em má condição são mais vulneráveis; a cobertura
          vegetal (grama + arbustos) protege conforme o tipo de predador. */
-      chegadas.forEach(c => { if (c.mes === m) { E.pred[c.tipo].n += c.n; E.pred[c.tipo].chegou = true; E.pred[c.tipo].extinto = false; acc.eventos.push({ mes: mo % 3, tipo: 'chegada_' + c.tipo }); } });
+      chegadas.forEach(c => { if (c.mes === m) { const st0 = E.pred[c.tipo]; st0.n += c.n; st0.f += Math.floor(c.n / 2) + (c.n % 2 && rng() < 0.5 ? 1 : 0); st0.chegou = true; E.pred[c.tipo].extinto = false; acc.eventos.push({ mes: mo % 3, tipo: 'chegada_' + c.tipo }); } });
       let lamJ = 0, lamA = 0;
-      const predEaten = {};
-      const tiposAtivos = Object.keys(E.pred).filter(t => E.pred[t].n > 0);
+      const predEaten = {};                 // coelhos-equivalentes REALMENTE comidos (preenchido na mortalidade)
+      const lamPor = [];                    // [tipo, λ para jovens, λ para adultos] — para atribuir cada morte a um predador
+      const frioPred = 1 + 0.015 * Math.max(0, 10 - cm.T);   // custo energético extra no frio
+      const tiposAtivos = Object.keys(E.pred).filter(t => E.pred[t].n + E.pred[t].flut > 0);
       if (tiposAtivos.length && N0 > 0) {
         let SJ = 0, SA = 0;
         for (let i = 0; i < N0; i++) { const cf = 1 + 0.8 * Math.max(0, 0.8 - pop.cond[i]); if (pop.idade[i] < P.maturidade_meses) SJ += cf; else SA += cf; }
@@ -705,21 +729,33 @@
         let totK = 0;
         const Ks = {};
         tiposAtivos.forEach(t => {
-          const T = PRED_TIPOS[t], Pn = E.pred[t].n;
+          const T = PRED_TIPOS[t], st = E.pred[t];
           const expo = 1 - T.prot * (0.6 * cov + 0.4 * arbRel);
           const Wt = T.juv * SJ + SA;
           const Dv = Wt / A * expo;
-          const kPer = T.need * 1.25 * Dv * Dv / (Dv * Dv + T.h * T.h); // tipo III: troca de presa quando coelhos ficam raros
-          Ks[t] = { K: Pn * kPer, Wt, T };
-          totK += Pn * kPer;
+          // Holling tipo III: k = kmax·D²/(D² + h²), com h² = kmax/(a) — a eficiência de caça multiplica a taxa de ataque a
+          const h2 = T.h * T.h / Math.max(0.05, P.pred_eficiencia);
+          // O limite de manuseio é de BIOMASSA (coelhos-equivalentes), não de número de presas:
+          // um filhote (0,4 de adulto) é capturado e comido mais depressa que um adulto.
+          const fracJ0 = Wt > 0 ? T.juv * SJ / Wt : 0;
+          const eqMedio = fracJ0 * 0.4 + (1 - fracJ0);
+          const kmax = T.need * 1.25 * frioPred / Math.max(0.4, eqMedio);   // presas/mês
+          // caçadores: adultos territoriais + flutuantes (caçam em áreas piores, 60% da eficiência)
+          const cacadores = st.n + 0.6 * st.flut;
+          // interferência (Beddington–DeAngelis): acima da capacidade territorial, brigas reduzem o sucesso por indivíduo
+          const capT = capTerritorio(T, P);
+          const interf = 1 + 0.5 * Math.max(0, (st.n + st.flut) / capT - 1);
+          const kPer = kmax * Dv * Dv / (Dv * Dv + h2) / interf;
+          Ks[t] = { K: cacadores * kPer, Wt, T };
+          totK += cacadores * kPer;
         });
         const cap = 0.6 * N0, esc = totK > cap ? cap / totK : 1;
         tiposAtivos.forEach(t => {
           const k = Ks[t], K = k.K * esc;
           const lam = k.Wt > 0 ? K / k.Wt : 0;
           lamJ += lam * k.T.juv; lamA += lam;
-          const fracJ = k.Wt > 0 ? k.T.juv * SJ / k.Wt : 0;
-          predEaten[t] = K * (fracJ * 0.4 + (1 - fracJ));   // coelhos-equivalentes adultos
+          lamPor.push([t, lam * k.T.juv, lam]);
+          predEaten[t] = 0;
         });
       }
       const NH = CAUSAS.length;
@@ -751,6 +787,13 @@
           let r = rng() * somaH, k = 0;
           while (k < NH - 1 && r > hz[k]) { r -= hz[k]; k++; }
           acc.mc[CAUSAS[k]]++; acc.mortes++;
+          if (k === 9 && lamPor.length) {
+            // atribui a presa ao predador que a caçou (proporcional ao risco de cada tipo) — balanço de massa
+            let tot = 0; for (const lp of lamPor) tot += juv ? lp[1] : lp[2];
+            let r2_ = rng() * tot, q = 0;
+            while (q < lamPor.length - 1 && r2_ > (juv ? lamPor[q][1] : lamPor[q][2])) { r2_ -= juv ? lamPor[q][1] : lamPor[q][2]; q++; }
+            predEaten[lamPor[q][0]] += juv ? 0.4 : 1;   // jovem ≈ 0,4 de um adulto em massa comestível
+          }
           const id = pop.id[i]; if (id < MAXG && genealogia[id]) genealogia[id].morte = m;
           continue;
         }
@@ -762,46 +805,62 @@
       /* 5c. dinâmica dos predadores (alimentação, mortes, nascimentos, migração) */
       Object.keys(E.pred).forEach(t => {
         const T = PRED_TIPOS[t], st = E.pred[t];
-        if (st.n <= 0 && !T.migra) return;
+        const altSaz = [1.0, 1.1, 0.85, 0.6][s];   // aves e insetos são escassos no inverno
+        const aT = Math.min(0.95, T.alt * P.presas_alt);
         if (T.migra) {
           if (!st.chegou) return;
-          const Dv = (N0 / A) * (1 - T.prot * 0.6 * cov);
-          const alvo = T.max * (A / 100) * Dv / (Dv + T.h) * [0.7, 0.5, 1.0, 1.2][s];
+          // mesma exposição usada na caça (grama + arbustos), densidade realista por km²
+          const expo = 1 - T.prot * (0.6 * cov + 0.4 * clamp(E.Hs / E.Hs0, 0, 1));
+          const Dv = (N0 / A) * expo;
+          const alvo = T.max * (A / 100) * P.pred_territorio * Dv * Dv / (Dv * Dv + T.h * T.h) * [0.7, 0.5, 1.0, 1.3][s];
           const delta = (alvo - st.n) * 0.3 + (rng() - 0.5);
           st.n = Math.max(0, Math.round(st.n + delta));
-          const comido = predEaten[t] || 0;
-          st.I = st.n > 0 ? Math.min(1.3, (comido + Math.min(0.95, T.alt * P.presas_alt) * T.need * st.n) / (T.need * st.n)) : 0;
+          st.I = st.n > 0 ? Math.min(1.3, ((predEaten[t] || 0) + aT * altSaz * T.need * st.n) / (T.need * frioPred * st.n)) : 0;
           return;
         }
-        // Adultos caçam; filhotes dependem dos pais (comem ~35% de um adulto) até amadurecer.
-        const Pn = st.n;
+        if (st.n + st.flut + st.jov.length === 0) return;
+        // Adultos territoriais e flutuantes caçam; filhotes dependem dos pais (comem ~35% de um adulto).
+        const Pn = st.n, Fl = st.flut;
         const J = st.jov.reduce((a, x) => a + x.n, 0);
-        const aT = Math.min(0.95, T.alt * P.presas_alt);
-        const necTot = T.need * (Pn + 0.35 * J);
-        const altTot = Math.min(aT * necTot, aT * T.need * T.altCap * P.presas_alt * (A / 100));
+        const necTot = T.need * frioPred * (Pn + Fl + 0.35 * J);
+        const altTot = Math.min(aT * necTot, aT * T.need * T.altCap * P.presas_alt * (A / 100) * altSaz);
         st.I = necTot > 0 ? Math.min(1.3, ((predEaten[t] || 0) + altTot) / necTot) : 0;
         // reservas corporais: a condição acompanha a ingestão com atraso (semanas de jejum são toleradas)
         st.c = clamp(st.c + 0.3 * (Math.min(1.1, st.I) - st.c), 0, 1.1);
-        const mBase = 1 - Math.pow(1 - T.mort, 1 / 12);
-        const pmA = Math.min(1, mBase + (st.c < 0.55 ? T.fome * Math.pow((0.55 - st.c) / 0.55, 1.2) : 0));
+        const mBase = (1 - Math.pow(1 - T.mort, 1 / 12)) * P.pred_mortalidade;
+        const mFome = st.c < 0.55 ? T.fome * Math.pow((0.55 - st.c) / 0.55, 1.2) : 0;
+        const pmA = Math.min(1, mBase + mFome);
+        const pmF = Math.min(1, 1.6 * mBase + 1.3 * mFome);                                  // flutuantes: sem território, mais expostos
         const pmJ = Math.min(1, 2 * mBase + (st.I < 0.85 ? 0.7 * (0.85 - st.I) / 0.85 : 0)); // filhotes morrem primeiro
-        let dA = 0, dJ = 0, semTerritorio = 0;
-        for (let k = 0; k < Pn; k++) if (rng() < pmA) dA++;
+        let dA = 0, dF = 0, dJ = 0;
+        // mortes de adultos (cada morte é de fêmea com probabilidade f/n)
+        for (let k = 0; k < Pn; k++) if (rng() < pmA) { dA++; if (rng() < st.f / Math.max(1, st.n)) st.f--; st.n--; }
+        for (let k = 0; k < Fl; k++) if (rng() < pmF) { dF++; if (rng() < st.flutF / Math.max(1, st.flut)) st.flutF--; st.flut--; }
         st.jov.forEach(co => { let d = 0; for (let k = 0; k < co.n; k++) if (rng() < pmJ) d++; co.n -= d; dJ += d; co.idade++; });
-        let nA = Pn - dA;
-        // território: a ilha só comporta um número limitado de adultos; jovens sem território morrem
-        const cap = Math.max(2, Math.round(T.dens * A / 100));
-        st.jov.filter(co => co.idade >= T.matur && co.n > 0).forEach(co => { const entra = Math.min(Math.max(0, cap - nA), co.n); nA += entra; semTerritorio += co.n - entra; });
+        // filhotes maduros viram flutuantes (sexo sorteado); flutuantes ocupam territórios vagos
+        st.jov.filter(co => co.idade >= T.matur && co.n > 0).forEach(co => { for (let k = 0; k < co.n; k++) { st.flut++; if (rng() < 0.5) st.flutF++; } });
         st.jov = st.jov.filter(co => co.idade < T.matur && co.n > 0);
+        const capT = capTerritorio(T, P);
+        while (st.n < capT && st.flut > 0) {
+          const machosF = st.flut - st.flutF;
+          let vemF;
+          if (st.f === 0 && st.flutF > 0) vemF = true;                 // falta fêmea com território
+          else if (st.n - st.f === 0 && machosF > 0) vemF = false;     // falta macho com território
+          else vemF = rng() < st.flutF / st.flut;
+          st.n++; st.flut--; if (vemF) { st.f++; st.flutF--; }
+        }
+        // reprodução: precisa de ao menos um macho e uma fêmea com território; raposas formam casais
         let nascidos = 0;
-        if (T.repro.indexOf(mo) >= 0 && nA >= 2) {
+        const machos = st.n - st.f;
+        if (T.repro.indexOf(mo) >= 0 && st.f > 0 && machos > 0) {
           const ok = clamp((st.c - 0.45) / 0.35, 0, 1);
-          for (let k = 0; k < nA; k++) if (rng() < 0.5 && rng() < T.pRepro * ok) nascidos += poisson(rng, T.ninhada * T.sobrevFilhote);
+          const rep = Math.sqrt(Math.max(0, P.pred_reproducao));
+          const reprodutoras = T.monogamo ? Math.min(st.f, machos) : st.f;
+          for (let k = 0; k < reprodutoras; k++) if (rng() < Math.min(1, T.pRepro * ok * rep)) nascidos += poisson(rng, T.ninhada * T.sobrevFilhote * rep);
           if (nascidos > 0) st.jov.push({ n: nascidos, idade: 0 });
         }
-        st.n = nA;
-        acc.predNasc += nascidos; acc.predMortes += dA + dJ + semTerritorio;
-        if (st.n + st.jov.reduce((a, x) => a + x.n, 0) === 0 && (Pn > 0 || J > 0) && !st.extinto) { st.extinto = true; acc.eventos.push({ mes: mo % 3, tipo: 'extinto_' + t }); }
+        acc.predNasc += nascidos; acc.predMortes += dA + dF + dJ;
+        if (st.n + st.flut + st.jov.reduce((a, x) => a + x.n, 0) === 0 && (Pn > 0 || Fl > 0 || J > 0) && !st.extinto) { st.extinto = true; acc.eventos.push({ mes: mo % 3, tipo: 'extinto_' + t }); }
       });
 
       /* 6. reprodução */
