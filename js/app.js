@@ -29,6 +29,8 @@
   const chuvaRef = () => (RES && RES.regime ? RES.regime.chuva : [210, 90, 150, 130]);
 
   let D = null, BASE100 = null, ORIG = null, RES = null, IDX = 0, timer = null, vista = 'geral', cenSel = 'A', predSel = 'P1', labMC = null, DUR = 50;
+  // LAB: experimento na tela · RISCO: repetições já calculadas · HIST: simulações anteriores
+  let LAB = null, RISCO = null, riscoEmCurso = null, riscoProg = null, HIST = [];
   let cumNasc = [], cumMort = [];
   const G = {};
 
@@ -37,6 +39,20 @@
   function rotuloCurto(i) { if (i === 0) return 'Início'; const r = RES.registros[i]; return `Ano ${r.ano} · ${EST[r.est]}`; }
   // "no verão do ano 5" / "na primavera do ano 3"
   function quando(i) { if (i === 0) return 'no início'; const r = RES.registros[i]; return (r.est === 0 ? 'na ' : 'no ') + EST[r.est].toLowerCase() + ' do ano ' + r.ano; }
+  // "nesta primavera" / "neste verão"
+  const nesta = (est) => (est === 0 ? 'nesta ' : 'neste ') + EST[est].toLowerCase();
+  // a estação é de crescimento da vegetação no regime de estações da simulação atual?
+  function ehCrescimento(est) {
+    const m = { brasil: [1, 1, 1, 0], bimodal: [1, 0, 1, 0], temperado: [1, 1, 0, 0] };
+    return !!(m[RES.regime ? RES.regime.id : 'brasil'] || m.brasil)[est];
+  }
+  // "um casal de coelhos" / "5 casais de coelhos" / "2 coelhos"
+  function fundadoresTxt() {
+    const P = RES.parametros, n = RES.registros[0].N;
+    if (P.fundadores === 'dois_machos') return 'dois coelhos machos';
+    if (P.fundadores === 'dois_filhotes') return 'um casal de filhotes';
+    return n === 2 ? 'um casal de coelhos adultos' : (n / 2) + ' casais de coelhos adultos';
+  }
   function carregando(on, txt) { $('carregando').classList.toggle('vis', !!on); if (txt) $('carregandoTxt').textContent = txt; }
   function baixar(nome, conteudo, tipo) {
     const blob = new Blob([conteudo], { type: tipo });
@@ -158,19 +174,109 @@
   // novaSorte: cada simulação pedida pela Central usa uma semente aleatória nova (a menos que a sorte esteja fixada)
   function aplicarExperimento(novaSorte) {
     if (novaSorte && $('ccSorteNova').checked) $('labSemente').value = 1 + Math.floor(Math.random() * 999998);
-    const clicou = novaSorte;
     const p = lerLab();
     $('ccSimular').classList.remove('pulsa');
-    if (ehPadrao(p) && +$('labReps').value === 1) {
-      parar();
-      prepararDuracao(p.anos); RES = ORIG; labMC = null;
+    if (ehPadrao(p)) {
+      parar(); cancelarRisco();
+      prepararDuracao(p.anos); RES = ORIG; labMC = null; LAB = null;
       atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
-      $('centralStatus').textContent = `Mostrando a simulação original (${p.anos} anos).`;
-      $('labResultado').innerHTML = '';
+      $('centralStatus').textContent = `Mostrando a simulação original (${p.anos} anos, sorte nº 42).`;
+      $('labStatus').textContent = 'Todos os controles estão no padrão: mostrando a simulação original.';
+      $('labResultado').innerHTML = ''; renderResultadoCentral();
       return;
     }
-    rodarLab(clicou);
-  }  function montarGuia() {
+    rodarLab(novaSorte);
+  }
+  // identifica um experimento sem a duração (para reaproveitar a simulação ao mudar só os anos)
+  const chaveExp = (p) => JSON.stringify(Object.assign({}, p, { anos: 0 }));
+
+  /* ---------------- risco em segundo plano (Monte Carlo sem travar a página) ---------------- */
+  let riscoWorker = null, riscoTk = 0, riscoTimer = null;
+  function cancelarRisco() {
+    riscoTk++;
+    if (riscoWorker) { try { riscoWorker.terminate(); } catch (e) { /* ok */ } riscoWorker = null; }
+    clearTimeout(riscoTimer);
+    riscoProg = null; riscoEmCurso = null;
+  }
+  function criarWorker() {
+    // o motor é recriado dentro do worker a partir do próprio código (funciona abrindo o arquivo direto)
+    if (!window.Worker || !window.IlhaEngineFactory) return null;
+    try {
+      const src = `const E = (${window.IlhaEngineFactory.toString()})();
+        onmessage = (ev) => { const { p, n, tk } = ev.data; for (let k = 0; k < n; k++) postMessage({ tk, k, rep: E.repCompacto(E.simular(Object.assign({}, p, { semente: 1000 + k }))) }); };`;
+      return new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    } catch (e) { return null; }
+  }
+  function calcularRisco(p, n, chave) {
+    cancelarRisco();
+    const tk = riscoTk, reps = [];
+    riscoProg = { feito: 0, n }; riscoEmCurso = { chave, anos: p.anos };
+    const recebe = (rep) => {
+      if (tk !== riscoTk) return;
+      reps.push(rep); riscoProg = { feito: reps.length, n };
+      if (reps.length >= n) {
+        riscoProg = null; riscoEmCurso = null;
+        RISCO = { chave, reps, anos: p.anos };
+        if (RES !== ORIG) labMC = Eng.mcDeReps(reps, Math.min(p.anos, RES.parametros.anos));
+        renderRelatorio(); renderLabResultado(p);
+      }
+      renderHeroiStats(); renderResultadoCentral();
+    };
+    riscoWorker = criarWorker();
+    if (riscoWorker) {
+      riscoWorker.onmessage = (ev) => { if (ev.data.tk === tk) recebe(ev.data.rep); };
+      riscoWorker.onerror = () => { riscoWorker = null; fatia(); };
+      riscoWorker.postMessage({ p, n, tk });
+    } else fatia();
+    // sem Worker: uma repetição por vez, com pausas para a página responder
+    function fatia() {
+      if (tk !== riscoTk || reps.length >= n) return;
+      riscoTimer = setTimeout(() => { if (tk !== riscoTk) return; recebe(Eng.repCompacto(Eng.simular(Object.assign({}, p, { semente: 1000 + reps.length })))); fatia(); }, 250);
+    }
+  }
+  // Risco de extinção que vale para a simulação na tela
+  function mcAtual() {
+    if (RES === ORIG) return D.mcBase;
+    if (labMC) return labMC;
+    return LAB && LAB.padrao ? D.mcBase : null;
+  }
+
+  /* ---------------- resultado e histórico na Central ---------------- */
+  function resumoCurto(res) {
+    const S = res.resumo, f = res.registros[res.registros.length - 1];
+    return { pico: S.Nmax, fim: S.Nfinal, extinta: S.extinta, pasto: f.R, arb: f.Hs / res.registros[0].Hs, pred: f.predTotal, saude: f.saude };
+  }
+  function descreverExp(p) {
+    const partes = [];
+    p.predadores.forEach(x => partes.push(Eng.PRED_TIPOS[x.tipo].icone + ' ' + Eng.PRED_TIPOS[x.tipo].nome.toLowerCase()));
+    if (p.estacoes !== Eng.PADRAO.estacoes) partes.push(Eng.REGIMES[p.estacoes].curto.toLowerCase());
+    Eng.PARAM_META.forEach(m => { if (Math.abs(p[m.k] - Eng.PADRAO[m.k]) > 1e-9) partes.push(m.rotulo.toLowerCase() + ' ' + fmtParam(m, p[m.k])); });
+    if (p.fundadores !== 'par_adulto') partes.push('fundadores diferentes');
+    if (!p.surtos_doenca) partes.push('sem surtos');
+    return partes.length ? partes.join(' · ') : 'ilha original';
+  }
+  function renderResultadoCentral() {
+    const box = $('ccRes'); if (!box) return;
+    const r = resumoCurto(RES), mc = mcAtual(), P = RES.parametros;
+    const item = (v, l) => `<div class="cr-i"><b>${v}</b><span>${l}</span></div>`;
+    box.innerHTML = `<div class="cr-itens">
+        ${item(fmt(r.pico), 'pico de coelhos')}
+        ${item(r.extinta ? 'extintos' : fmt(r.fim), r.extinta ? 'coelhos ' + mesTxt(RES.resumo.mesExtincao) : `coelhos no ano ${P.anos}`)}
+        ${item(pct(r.pasto), 'do pasto vivo no fim')}
+        ${item(pct(r.arb), 'dos arbustos no fim')}
+        ${P.predadores.length ? item(fmt(r.pred), 'predadores no fim') : ''}
+        ${item(mc ? pct(mc.pExtincao) : (riscoProg ? `${riscoProg.feito}/${riscoProg.n}` : '—'), mc ? 'risco de os coelhos sumirem' : 'calculando o risco…')}
+      </div>
+      <div class="cr-btns"><button class="btn peq pri" id="crVer">Ver a ilha ↓</button><button class="btn peq" id="crPlay">▶ Assistir</button></div>`;
+    $('crVer').addEventListener('click', () => window.irPagina('geral', 'painel'));
+    $('crPlay').addEventListener('click', () => { window.irPagina('geral', 'painel'); irPara(0); setTimeout(tocar, 500); });
+    const h = $('ccHist'); if (!h) return;
+    h.hidden = HIST.length < 2;
+    h.innerHTML = '<span class="muted small">Simulações anteriores (clique para rever):</span> ' + HIST.slice(1).map((x, k) =>
+      `<button class="hist" data-k="${k + 1}" title="${esc(descreverExp(x.p))}">🎲 ${x.p.semente} · ${x.p.anos} anos · ${esc(descreverExp(x.p)).slice(0, 44)} → ${x.s.extinta ? 'extintos' : fmt(x.s.fim) + ' coelhos'}, pasto ${pct(x.s.pasto)}</button>`).join('');
+    h.querySelectorAll('.hist').forEach(b => b.addEventListener('click', () => { carregarParametros(HIST[+b.dataset.k].p); aplicarExperimento(false); }));
+  }
+  function montarGuia() {
     let fechado = false; try { fechado = localStorage.getItem('ilha_guia') === '1'; } catch (e) { /* sem armazenamento */ }
     if (fechado) $('guiaBox').classList.add('oculto');
     $('guiaFechar').addEventListener('click', () => { $('guiaBox').classList.add('oculto'); try { localStorage.setItem('ilha_guia', '1'); } catch (e) { /* ok */ } });
@@ -194,23 +300,26 @@
     const dec = anos <= 40 ? 10 : 25;
     $('popFaixa').innerHTML = `<option value="">${anos} anos</option>` + Array.from({ length: Math.ceil(anos / dec) }, (_, k) => `<option value="${k * dec * 4}-${Math.min(anos, (k + 1) * dec) * 4}">Anos ${k * dec + 1}–${Math.min(anos, (k + 1) * dec)}</option>`).join('');
     renderHeroi(); criarGraficos(); renderTimeline(); renderTabelas(); renderRelatorio(); renderCenarios(); renderClimaFatos();
-    renderGenealogia(); renderGeneCards(); marcasTimebar(); renderCapitulos(); renderPredadores();
+    renderGenealogia(); renderGeneCards(); marcasTimebar(); renderCapitulos(); renderPredadores(); renderResultadoCentral();
   }
 
-  function renderHeroi() {
-    const S = RES.resumo, mc = labMC || (RES === ORIG || ehPadrao(Object.assign(lerLab(), { anos: RES.parametros.anos }), true) ? D.mcBase : null);
+  function renderHeroi() { renderHeroiStats(); renderHeroiGrafico(); }
+  function renderHeroiStats() {
+    const S = RES.resumo, mc = mcAtual();
     const st = [
       { v: fmt(S.Nmax), l: 'maior população (' + quando(S.iMax) + ')' },
       { v: S.extinta ? 'Extinta' : fmt(S.Nfinal), l: S.extinta ? 'população final: extinção ' + mesTxt(S.mesExtincao) : 'coelhos ao final dos ' + RES.parametros.anos + ' anos' },
-      { v: mc ? pct(mc.pExtincao) : '—', l: mc ? `risco de extinção em ${RES.parametros.anos} anos (${mc.reps} repetições)` : 'risco de extinção: escolha repetições no Laboratório' },
+      { v: mc ? pct(mc.pExtincao) : (riscoProg ? '…' : '—'), l: mc ? `risco de os coelhos sumirem em ${RES.parametros.anos} anos (${mc.reps} repetições)` : (riscoProg ? `calculando o risco: ${riscoProg.feito} de ${riscoProg.n} repetições` : 'risco de os coelhos sumirem') },
       { v: Math.round(S.final.saude) + '/100', l: 'saúde do ecossistema no fim' }
     ];
     $('heroiStats').innerHTML = st.map(s => `<div class="hs"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
+  }
+  function renderHeroiGrafico() {
     // minigráfico: coelhos ao fim de cada ano (barras claras = anos de queda)
     const A = RES.anual;
     $('heroiMgSub').textContent = `anos 1 a ${A.length} · clique para ir ao ano`;
     grafico('gHeroi', { _sazonal: false, _anual: true, altura: 150, legenda: false, padL: 44, padT: 8, padB: 24,
-      passos: [1, 2, 5, 10, 20, 25], rotuloX: (i) => String(i + 1), titulo: (i) => 'Fim do ano ' + (i + 1),
+      passos: [1, 2, 5, 10, 20, 25], rotuloX: (i) => String(i + 1), titulo: (i) => 'Fim do ano ' + (i + 1), fmtY: (v) => fmt(Math.round(v)),
       series: [{ rotulo: 'Coelhos', tipo: 'barra', dados: A.map(a => a.Nfim), cor: C.pop, corFn: (v, i) => i > 0 && v < A[i - 1].Nfim * 0.6 ? '#c9c5b6' : C.pop }],
       fmtV: (v) => fmt(v) + ' coelhos', onClick: (i) => { parar(); irPara((i + 1) * 4); } });
   }
@@ -394,23 +503,25 @@
     $('fraseMomento').textContent = fraseMomento(r, p, IDX);
   }
   function fraseMomento(r, p, i) {
-    if (i === 0) return 'Primavera. Dois coelhos adultos exploram uma ilha coberta de vegetação, sem nenhum outro coelho e sem predadores.';
-    const e = EST[r.est].toLowerCase();
-    if (r.N === 0) return p.N > 0 ? `Neste ${e}, o último coelho morreu.` : `A ilha está sem coelhos. ${r.R > 0.7 ? 'A vegetação voltou a crescer.' : 'A vegetação tenta se recuperar.'}`;
-    if (r.K > 0 && r.N > r.K * 1.2) return `Há coelhos demais: ${fmt(r.N)} para comida que daria para uns ${fmt(r.K)}. A fome está chegando.`;
+    if (i === 0) { const f = fundadoresTxt(); return `Primavera. ${f.charAt(0).toUpperCase() + f.slice(1)} ${RES.registros[0].N === 2 ? 'explora' : 'exploram'} uma ilha coberta de vegetação, sem nenhum outro coelho${RES.parametros.predadores.length ? '. Os predadores ainda não chegaram.' : ' e sem predadores.'}`; }
+    const e = nesta(r.est), E1 = e.charAt(0).toUpperCase() + e.slice(1);
+    if (r.N === 0) return p.N > 0 ? `${E1}, o último coelho morreu.` : `A ilha está sem coelhos. ${r.R > 0.7 ? 'A vegetação voltou a crescer.' : 'A vegetação tenta se recuperar.'}`;
     if (r.indAlim < 0.7) return `Fome: os coelhos conseguem só ${pct(r.indAlim)} do que precisam comer. Muitos morrem e quase nenhum filhote nasce.`;
-    if (r.nasc > r.mortes * 2 && r.nasc > 20) return `Época de filhotes: nasceram ${fmt(r.nasc)} coelhos neste ${e} e a população cresce.`;
-    if (r.mortes > r.nasc * 2 && r.mortes > 20) return `Neste ${e} morreram ${fmt(r.mortes)} coelhos, bem mais do que nasceram.`;
-    if ((r.mc.predacao || 0) > r.mortes * 0.4 && r.mortes > 5) return `Os predadores são a principal causa de morte agora: ${fmt(r.mc.predacao)} coelhos caçados neste ${e}.`;
+    if (r.K > 0 && r.N > r.K * 1.2) return `Há coelhos demais: ${fmt(r.N)} para comida que daria para uns ${fmt(r.K)}. ${r.indAlim < 0.9 ? 'Já falta comida.' : 'A fome está chegando.'}`;
+    if ((r.mc.predacao || 0) > r.mortes * 0.4 && r.mortes > 5) return `Os predadores são a principal causa de morte agora: ${fmt(r.mc.predacao)} coelhos caçados ${e}.${r.R > 0.8 ? ' Com menos coelhos, o pasto segue saudável.' : ''}`;
+    if (r.nasc > r.mortes * 2 && r.nasc > 20) return `Época de filhotes: nasceram ${fmt(r.nasc)} coelhos ${e} e a população cresce.`;
+    if (r.mortes > r.nasc * 2 && r.mortes > 20) return `${E1} morreram ${fmt(r.mortes)} coelhos, bem mais do que nasceram.`;
     return `${EST[r.est]}: ${fmt(r.N)} coelhos, comida ${r.indAlim >= 0.95 ? 'suficiente' : 'um pouco escassa'} e pasto com ${pct(r.R)} das raízes vivas.`;
   }
   function renderCapitulos() {
     const R = RES.registros, ev = (t) => RES.eventos.find(e => e.tipo === t), S = RES.resumo;
     const caps = [];
     const cap = (i, ic, t, txt) => caps.push({ i, ic, t, txt });
-    cap(0, '🏝️', 'A chegada', 'Um casal de coelhos chega a uma ilha intacta, cheia de grama, alguns arbustos e uma única árvore.');
+    const fu = fundadoresTxt();
+    cap(0, '🏝️', 'A chegada', `${fu.charAt(0).toUpperCase() + fu.slice(1)} ${R[0].N === 2 ? 'chega' : 'chegam'} a uma ilha intacta, cheia de grama, alguns arbustos e uma única árvore.`);
     const e1 = ev('mil') || ev('primeira_ninhada');
-    if (e1) cap(e1.i, '🐣', e1.tipo === 'mil' ? 'A explosão' : 'Os primeiros filhotes', e1.tipo === 'mil' ? `Com comida farta e sem inimigos, os coelhos se multiplicam: já são ${fmt(R[e1.i].N)} ${quando(e1.i)}.` : e1.texto);
+    const temPred = (i) => R[i].predTotal > 0;
+    if (e1) cap(e1.i, '🐣', e1.tipo === 'mil' ? 'A explosão' : 'Os primeiros filhotes', e1.tipo === 'mil' ? `${temPred(e1.i) ? 'Mesmo com predadores na ilha' : 'Com comida farta e sem inimigos'}, os coelhos se multiplicam: já são ${fmt(R[e1.i].N)} ${quando(e1.i)}.` : e1.texto);
     cap(S.iMax, '🏔️', 'O auge', `A população chega a ${fmt(S.Nmax)} coelhos ${quando(S.iMax)}. ${S.Nmax > R[S.iMax].K ? 'É mais do que a ilha consegue alimentar.' : ''}`);
     const eP = ev('pred_chegada');
     if (eP) cap(eP.i, eP.icone, 'Chegam os predadores', eP.texto);
@@ -425,7 +536,14 @@
     }
     const eX = ev('extincao'), eR = ev('recuperacao');
     if (eX) cap(eX.i, '🕯️', 'O fim dos coelhos', `O último coelho morre ${quando(eX.i)}. ${eR && eR.i > eX.i ? 'Depois, a vegetação começa a voltar.' : ''}`);
-    else if (S.colapsos >= 2) { const iz = R.length - 1; cap(iz, '🔁', 'Ciclos', `Depois do primeiro colapso, a história se repete: ${S.colapsos} quedas bruscas em ${RES.parametros.anos} anos, sempre que o pasto se recupera.`); }
+    else if (S.colapsos >= 2) {
+      // capítulo no segundo colapso (o último registro fica para o capítulo final)
+      let n = 0, i2 = -1; for (let k = 1; k < R.length; k++) if (R[k - 1].N >= 100 && R[k].N < 0.5 * R[k - 1].N && ++n === 2) { i2 = k; break; }
+      if (i2 > 0) cap(i2, '🔁', 'Ciclos', `Depois do primeiro colapso, a história se repete: ${S.colapsos} quedas bruscas em ${RES.parametros.anos} anos, sempre que o pasto se recupera e os coelhos voltam a se multiplicar.`);
+    }
+    // predadores controlando a população: capítulo no meio do período de convivência
+    const comPred = R.map((x, k) => k).filter(k => R[k].predTotal > 0);
+    if (comPred.length > 40 && S.colapsos <= 2) { const im = comPred[Math.floor(comPred.length / 2)]; cap(im, '⚖️', 'Equilíbrio', `Predadores e coelhos convivem: ${quando(im)} há ${fmt(R[im].N)} coelhos e ${fmt(R[im].predTotal)} predadores, e o pasto tem ${pct(R[im].R)} das raízes vivas.`); }
     const f = R[R.length - 1];
     if (!eX || eX.i < R.length - 1) cap(R.length - 1, '🧭', `Depois de ${RES.parametros.anos} anos`, `${f.N ? fmt(f.N) + ' coelhos' : 'Nenhum coelho'}, pasto com ${pct(f.R)} das raízes vivas, arbustos com ${pct(f.Hs / R[0].Hs)} do que havia e a árvore ${f.arvViva ? 'ainda viva' : 'morta'}.`);
     caps.sort((a, b) => a.i - b.i);
@@ -447,7 +565,7 @@
     const grama = r.Gg + r.Gd, grama0 = r0.Gg + r0.Gd;
     const arvEstado = !r.arvViva ? 'Morta' : r.arvCasca < 0.5 ? 'Anelada' : r.arvSaude < 0.6 ? 'Estressada' : 'Saudável';
     const html = [
-      kpi('População', fmt(r.N), dN === null ? 'início: 2 coelhos' : (dN >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(dN * 100)) + '% na estação', dN === null ? '' : dN >= 0 ? 'up' : 'down', r.K && r.N > r.K, '🐇'),
+      kpi('População', fmt(r.N), dN === null ? 'início: ' + r0.N + ' coelhos' : (dN >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(dN * 100)) + '% na estação', dN === null ? '' : dN >= 0 ? 'up' : 'down', r.K && r.N > r.K, '🐇'),
       kpi('Nascimentos', fmt(r.nasc), 'acumulado: ' + fmt(cumNasc[IDX]), '', false, '🐣'),
       kpi('Mortes', fmt(r.mortes), 'acumulado: ' + fmt(cumMort[IDX]), '', false, '⚰️'),
       kpi('Grama disponível', fmt(Math.round(grama)) + ' <small>kg/ha</small>', pct(r.Gg / Math.max(1, grama)) + ' verde · ' + (grama >= grama0 ? '▲ ' : '▼ ') + Math.abs(Math.round((grama / grama0 - 1) * 100)) + '% vs início', grama >= grama0 ? 'up' : 'down', r.R < 0.5, '🌾'),
@@ -552,7 +670,7 @@
       const h = 5 + 6 * t.s * clamp(grama / 600, 0.3, 1.3);
       s += `<path d="M${t.x.toFixed(0)},${t.y.toFixed(0)} l-2.5,-${h.toFixed(1)} M${t.x.toFixed(0)},${t.y.toFixed(0)} l0,-${(h * 1.2).toFixed(1)} M${t.x.toFixed(0)},${t.y.toFixed(0)} l2.5,-${h.toFixed(1)}" stroke="${cor}" stroke-width="1.5" stroke-linecap="round"/>`;
     });
-    if (r.regenera > 0.005 && r.est <= 1) { const nb = Math.round(clamp(r.regenera * 400, 4, 50)); GEO.brotos.slice(0, nb).forEach(b => { s += `<circle cx="${b.x.toFixed(0)}" cy="${b.y.toFixed(0)}" r="2.2" fill="#c8f59a"/>`; }); }
+    if (r.regenera > 0.005 && ehCrescimento(r.est)) { const nb = Math.round(clamp(r.regenera * 400, 4, 50)); GEO.brotos.slice(0, nb).forEach(b => { s += `<circle cx="${b.x.toFixed(0)}" cy="${b.y.toFixed(0)}" r="2.2" fill="#c8f59a"/>`; }); }
     GEO.arbustos.forEach((a, k) => {
       const x = a.x.toFixed(0), y = a.y.toFixed(0);
       if (k < nArb) {
@@ -648,15 +766,17 @@
     const L = [];
     const add = (nivel, ic, txt, vars) => L.push({ nivel, ic, txt, vars });
     if (IDX === 0) {
-      add('info', '🏝️', `Dois coelhos adultos (um macho e uma fêmea, não aparentados) chegam a uma ilha intacta. A primeira estação tem capacidade estimada para ${fmt(r.K)} coelhos.`, ['condição inicial']);
-      add('info', '🧬', 'Todos os coelhos que viverem aqui descenderão deste casal. Já na segunda geração, cruzamentos entre irmãos produzirão filhotes com F ≈ 0,25.', ['genética', 'fundadores']);
+      const fu = fundadoresTxt();
+      add('info', '🏝️', `${fu.charAt(0).toUpperCase() + fu.slice(1)}, sem parentesco entre si, ${r.N === 2 ? 'chega' : 'chegam'} a uma ilha intacta. A estação chuvosa tem capacidade estimada para ${fmt(RES.parametros.K_referencia)} coelhos.`, ['condição inicial']);
+      add('info', '🧬', r.N === 2 ? 'Todos os coelhos que viverem aqui descenderão deste casal. Já na segunda geração, cruzamentos entre irmãos produzirão filhotes com F ≈ 0,25.' : `Todos os coelhos que viverem aqui descenderão destes ${r.N} fundadores. Com mais fundadores, a consanguinidade demora mais a aparecer.`, ['genética', 'fundadores']);
+      if (RES.parametros.predadores.length) add('alerta', '🐾', 'Predadores neste experimento: ' + RES.parametros.predadores.map(x => `${x.n} ${Eng.PRED_TIPOS[x.tipo].nome.toLowerCase()} no ano ${x.ano}`).join('; ') + '.', ['predação']);
       mostrarInsights(L); return;
     }
     if (r.N === 0 && p && p.N > 0) add('mau', '🕯️', 'O último coelho morreu nesta estação: extinção local.', ['extinção', 'fome', 'demografia']);
     else if (r.N === 0) add('info', '🏝️', 'Não há coelhos na ilha. A vegetação evolui sem pastejo' + (r.regenera > 0.01 ? ' e as raízes da grama estão se recuperando.' : '.'), ['ausência de herbívoros']);
     if (p && p.N > 0 && r.N > 0) {
       const d = (r.N - p.N) / p.N;
-      if (Math.abs(d) >= 0.15) add(d > 0 ? 'info' : (d < -0.4 ? 'mau' : 'alerta'), d > 0 ? '📈' : '📉', `A população ${d > 0 ? 'aumentou' : 'diminuiu'} ${Math.abs(Math.round(d * 100))}% desde a estação anterior (${fmt(p.N)} → ${fmt(r.N)}).`, d > 0 ? ['nascimentos', 'alimento'] : ['mortes', Object.entries(r.mc).sort((x, y) => y[1] - x[1])[0][0]]);
+      if (Math.abs(d) >= 0.15) add(d > 0 ? 'info' : (d < -0.4 ? 'mau' : 'alerta'), d > 0 ? '📈' : '📉', `A população ${d > 0 ? 'aumentou' : 'diminuiu'} ${Math.abs(Math.round(d * 100))}% desde a estação anterior (${fmt(p.N)} → ${fmt(r.N)}).`, d > 0 ? ['nascimentos', 'alimento'] : ['mortes', NOME_CAUSA[Object.entries(r.mc).sort((x, y) => y[1] - x[1])[0][0]].toLowerCase()]);
     }
     if (a && a.N > 0 && r.N > 0) { const d = (r.N - a.N) / a.N; if (Math.abs(d) >= 0.5) add('info', '🔁', `Em relação ao mesmo período do ano anterior, a população está ${d > 0 ? Math.round(d * 100) + '% maior' : Math.abs(Math.round(d * 100)) + '% menor'}.`, ['tendência anual']); }
     if (r.K > 0 && r.N > r.K) add('mau', '⚠️', `A população (${fmt(r.N)}) excedeu a capacidade estimada de alimentação desta estação (${fmt(r.K)}): ${pct(r.N / r.K)} de ocupação.`, ['capacidade de suporte', 'densidade']);
@@ -667,11 +787,11 @@
     if (r.arbCons > r.arbCresc * 3 && r.arbCons > 2) add('alerta', '🌿', 'A regeneração dos arbustos não está acompanhando o consumo de folhas e brotos.', ['arbustos', 'ramoneio']);
     if (r.arbMort > 20) add('mau', '🪓', `${fmt(Math.round(r.arbMort))} kg/ha de estrutura de arbustos morreram nesta estação, sobretudo por descascamento.`, ['arbustos', 'fome']);
     const ref = chuvaRef()[r.est];
-    if (r.est <= 1 && r.chuva > ref * 1.1 && r.R < 0.5) add('alerta', '🌧️', `Apesar da chuva acima da média (${pct(r.chuva / ref)}), a vegetação não se recuperou o suficiente por causa da degradação anterior (vigor das raízes ${pct(r.R)}).`, ['chuva', 'degradação', 'efeito atrasado']);
-    else if (r.chuva < ref * 0.75) add('alerta', '☀️', `Estação seca: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva', 'umidade do solo']);
-    else if (r.chuva > ref * 1.25) add('info', '🌧️', `Estação chuvosa: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva']);
+    if (ehCrescimento(r.est) && r.chuva > ref * 1.1 && r.R < 0.5) add('alerta', '🌧️', `Apesar da chuva acima da média (${pct(r.chuva / ref)}), a vegetação não se recuperou o suficiente por causa da degradação anterior (vigor das raízes ${pct(r.R)}).`, ['chuva', 'degradação', 'efeito atrasado']);
+    else if (r.chuva < ref * 0.75) add('alerta', '☀️', `Choveu bem menos que o normal para a época: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva', 'umidade do solo']);
+    else if (r.chuva > ref * 1.25) add('info', '🌧️', `Choveu bem mais que o normal para a época: ${fmt1(r.chuva)} mm (${pct(r.chuva / ref)} da média).`, ['chuva']);
     if (p && r.sobrevFilhotes !== null && p.sobrevFilhotes !== null && r.sobrevFilhotes < p.sobrevFilhotes - 0.12) add('alerta', '🐣', `A sobrevivência dos filhotes no ninho caiu de ${pct(p.sobrevFilhotes)} para ${pct(r.sobrevFilhotes)}.`, ['condição das mães', 'endogamia', 'clima']);
-    if (r.est <= 1 && r.nasc === 0 && r.femRep > 0) add('alerta', '⛔', `${fmt(r.femRep)} fêmeas adultas, mas nenhum filhote nasceu: má nutrição suprime a reprodução e provoca reabsorção embrionária.`, ['nutrição', 'reprodução']);
+    if (ehCrescimento(r.est) && r.nasc === 0 && r.femRep > 0) add('alerta', '⛔', `${fmt(r.femRep)} fêmeas adultas, mas nenhum filhote nasceu: má nutrição suprime a reprodução e provoca reabsorção embrionária.`, ['nutrição', 'reprodução']);
     if (a && r.F !== null && a.F !== null && r.F - a.F > 0.03) add('alerta', '🧬', `Os indicadores genéticos apontam aumento da consanguinidade (F ${fmt3(a.F)} → ${fmt3(r.F)} em um ano).`, ['gargalo', 'deriva genética']);
     if (r.mc.endogamia > 0 && r.mortes > 0 && r.mc.endogamia / r.mortes > 0.25) add('info', '🧬', `${pct(r.mc.endogamia / r.mortes)} das mortes desta estação foram de filhotes atribuídas à depressão endogâmica.`, ['equivalentes letais', 'F dos filhotes']);
     if (r.surto) add('mau', '🦠', 'Um surto de doença endêmica, desencadeado pela alta densidade, elevou a mortalidade.', ['densidade', 'condição corporal', 'endogamia']);
@@ -774,7 +894,7 @@
       <div class="cartao"><h3>Endogamia</h3><div class="mono" style="font-size:1.6rem">${fmt3(ult.F)}</div><p class="sub">F médio ${RES.resumo.extinta ? 'no último registro com coelhos' : 'ao final'} (máximo ${fmt3(Fmax)}). ${iF2 > 0 ? `F dos recém-nascidos passou de 0,2 ${quando(iF2)}.` : ''}</p></div>
       <div class="cartao"><h3>Diversidade</h3><div class="mono" style="font-size:1.6rem">${pct(ult.He)}</div><p class="sub">da heterozigosidade inicial (mínimo ${pct(minHe)}). ${fmt2(ult.alelos)} de ${ult.alelosMax || 4} alelos fundadores restam por locus, em média.</p></div>
       <div class="cartao"><h3>Custo da consanguinidade</h3><div class="mono" style="font-size:1.6rem">${fmt(mE)}</div><p class="sub">mortes de filhotes atribuídas à depressão endogâmica (${pct(mE / Math.max(1, tot))} de todas as mortes). Com 2B = 3,14, um filhote com F = 0,25 tem ${pct(1 - Math.exp(-1.57 * 0.25 * RES.parametros.endogamia_mult))} a mais de risco no ninho.</p></div>
-      <div class="cartao span2" style="grid-column:1/-1"><h3>Em linguagem simples</h3><p class="sub" style="margin:0">Cada coelho tem duas cópias de cada gene, uma da mãe e uma do pai. Quando as duas cópias vêm do mesmo ancestral, defeitos recessivos que ficavam "escondidos" aparecem, e é por isso que filhos de parentes morrem mais. Como todos aqui descendem de dois animais, a consanguinidade chega a ~25% já na segunda geração. Depois, numa população grande, ela sobe devagar. Quando a população despenca (gargalo), poucos sobreviventes passam seus genes adiante e F volta a subir rápido.</p></div>`;
+      <div class="cartao span2" style="grid-column:1/-1"><h3>Em linguagem simples</h3><p class="sub" style="margin:0">Cada coelho tem duas cópias de cada gene, uma da mãe e uma do pai. Quando as duas cópias vêm do mesmo ancestral, defeitos recessivos que ficavam "escondidos" aparecem, e é por isso que filhos de parentes morrem mais. Como todos aqui descendem de ${R[0].N === 2 ? 'dois animais, a consanguinidade chega a ~25% já na segunda geração' : R[0].N + ' fundadores, a consanguinidade sobe mais devagar do que com um único casal'}. Depois, numa população grande, ela sobe devagar. Quando a população despenca (gargalo), poucos sobreviventes passam seus genes adiante e F volta a subir rápido.</p></div>`;
   }
 
   /* ---------------- clima ---------------- */
@@ -818,7 +938,7 @@
     $('tabPop').innerHTML = `<thead><tr><th>Ano</th><th class="l">Estação</th><th>População</th><th>Nascimentos</th><th>Mortes</th><th>Sobrevivência</th><th>Fêmeas reprod.</th><th>Imaturos</th><th>Adultos</th><th>Índice alim.</th><th>Capacidade</th></tr></thead><tbody>` +
       R.map(r => `<tr data-i="${r.i}"><td>${r.inicial ? '—' : r.ano}</td><td class="l">${r.inicial ? 'Início' : EST_IC[r.est] + ' ' + EST[r.est]}</td><td class="num">${fmt(r.N)}</td><td class="num">${fmt(r.nasc)}</td><td class="num">${fmt(r.mortes)}</td><td class="num">${pct(r.sobrev)}</td><td class="num">${fmt(r.femRep)}</td><td class="num">${fmt(r.filhotes)}</td><td class="num">${fmt(r.adultos)}</td><td class="num">${r.inicial ? '—' : pct(r.indAlim)}</td><td class="num">${fmt(r.K)}</td></tr>`).join('') + '</tbody>';
     $('tabPop').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => irPara(+tr.dataset.i)));
-    $('tabAno').innerHTML = `<thead><tr><th>Ano</th><th>Chuva (mm)</th><th>Estação chuvosa</th><th>Grama média (kg/ha)</th><th>Vigor raízes</th><th>Arbustos (kg/ha)</th><th>Árvore</th><th>Solo</th><th>Erosão (t/ha)</th><th>Alimento</th><th>K primavera</th><th>K sustentável</th><th>N máx</th><th>F</th><th>He</th><th>Ne (harm.)</th><th>Gerações</th></tr></thead><tbody>` +
+    $('tabAno').innerHTML = `<thead><tr><th>Ano</th><th>Chuva (mm)</th><th>Estação chuvosa</th><th>Grama média (kg/ha)</th><th>Vigor raízes</th><th>Arbustos (kg/ha)</th><th>Árvore</th><th>Solo</th><th>Erosão (t/ha)</th><th>Alimento</th><th>K est. chuvosa</th><th>K sustentável</th><th>N máx</th><th>F</th><th>He</th><th>Ne (harm.)</th><th>Gerações</th></tr></thead><tbody>` +
       RES.anual.map(a => `<tr data-i="${(a.ano - 1) * 4 + 1}"><td>${a.ano}</td><td class="num">${fmt(Math.round(a.chuva))}</td><td class="num">${pct(a.multPrim)}</td><td class="num">${fmt(Math.round(a.gramaMedia))}</td><td class="num">${pct(a.R)}</td><td class="num">${fmt(Math.round(a.arbustos))}</td><td class="num">${a.arvViva ? pct(a.arvore) : 'morta'}</td><td class="num">${pct(a.solo)}</td><td class="num">${fmt1(a.erosao)}</td><td class="num">${pct(a.alimento)}</td><td class="num">${fmt(a.Kprim)}</td><td class="num">${fmt(a.Ksust)}</td><td class="num">${fmt(a.Nmax)}</td><td class="num">${fmt3(a.F)}</td><td class="num">${pct(a.He)}</td><td class="num">${fmt1(a.Ne)}</td><td class="num">${fmt(a.ger)}</td></tr>`).join('') + '</tbody>';
     $('tabAno').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => irPara(+tr.dataset.i)));
   }
@@ -826,7 +946,7 @@
   /* ---------------- relatório ---------------- */
   function renderRelatorio() {
     const S = RES.resumo, R = RES.registros, P = RES.parametros, ev = (t) => RES.eventos.find(e => e.tipo === t);
-    const mc = RES === ORIG ? D.mcBase : labMC;
+    const mc = mcAtual();
     const fim = R[R.length - 1];
     const eMax = R[S.iMax];
     const eG = ev('grama_degrada'), eA = ev('arbustos'), eT = ev('arvore_morte'), eE = ev('extincao'), eC = ev('colapso');
@@ -836,8 +956,8 @@
     else p.push(`A vegetação não chegou a ser degradada de forma significativa (vigor mínimo das raízes ${pct(Math.min(...R.map(r => r.R)))}).`);
     p.push(`${eT ? 'A única árvore morreu ' + quando(eT.i) + '.' : `A única árvore sobreviveu (saúde final ${pct(fim.arvSaude)}).`} O solo perdeu ${fmt1(R[0].prof - fim.prof)} cm por erosão (${fmt(Math.round(fim.erosaoAcum))} t/ha) e a capacidade de suporte da estação chuvosa passou de ${fmt(RES.anual[0].Kprim)} para ${fmt(RES.anual[RES.anual.length - 1].Kprim)} coelhos.`);
     const ultF = R.filter(r => r.F !== null).pop();
-    p.push(`Geneticamente, a origem em dois fundadores impôs F ≈ ${fmt2(ultF ? ultF.F : 0)} e ${pct(S.mcTot.endogamia / Math.max(1, S.mortes))} das mortes foram de filhotes atribuídas à depressão endogâmica. ${S.extinta ? `A população foi <b>extinta</b> ${mesTxt(S.mesExtincao)}, e a vegetação ${fim.R > 0.7 ? 'voltou a se recuperar sem pastejo' : 'começou a se recuperar lentamente'}.` : `Ao final restavam <b>${fmt(S.Nfinal)}</b> coelhos.`}`);
-    if (mc) p.push(`Em ${mc.reps} repetições com outras sequências de chuva e de sorte demográfica, a probabilidade de extinção em ${P.anos} anos foi de <b>${pct(mc.pExtincao)}</b> (população final mediana: ${fmt(mc.NfinalMed)}). Resposta ao objetivo: uma ilha que alimentaria ~${fmt(P.K_referencia)} coelhos na estação chuvosa média <b>${mc.pExtincao >= 0.5 ? 'na maioria das vezes não consegue' : 'muitas vezes consegue, mas a um alto custo ecológico,'}</b> manter por ${P.anos} anos uma população descendente de dois fundadores, porque a primavera não representa o ano: a fome vem no outono e no inverno, depois que a explosão da primavera já degradou a vegetação.`);
+    p.push(`Geneticamente, a origem em ${S.Nini} fundadores impôs F ≈ ${fmt2(ultF ? ultF.F : 0)} e ${pct(S.mcTot.endogamia / Math.max(1, S.mortes))} das mortes foram de filhotes atribuídas à depressão endogâmica. ${S.extinta ? `A população foi <b>extinta</b> ${mesTxt(S.mesExtincao)}, e a vegetação ${fim.R > 0.7 ? 'voltou a se recuperar sem pastejo' : 'começou a se recuperar lentamente'}.` : `Ao final restavam <b>${fmt(S.Nfinal)}</b> coelhos.`}`);
+    if (mc) p.push(`Em ${mc.reps} repetições com outras sequências de chuva e de sorte demográfica, a probabilidade de extinção em ${P.anos} anos foi de <b>${pct(mc.pExtincao)}</b> (população final mediana: ${fmt(mc.NfinalMed)}). Resposta ao objetivo: uma ilha que alimentaria ~${fmt(P.K_referencia)} coelhos na estação chuvosa média <b>${mc.pExtincao >= 0.5 ? 'na maioria das vezes não consegue' : 'muitas vezes consegue, mas a um alto custo ecológico,'}</b> manter por ${P.anos} anos uma população descendente de dois fundadores, porque a estação farta não representa o ano: a fome vem na estação seca, depois que a explosão populacional já degradou a vegetação.`);
     $('conclusao').innerHTML = p.map(x => `<p>${x}</p>`).join('');
     const ano = RES.anual;
     $('resumoDl').innerHTML = [
@@ -893,25 +1013,25 @@
     const difs = cen.filter(c => (c.grupo ? c.grupo === 'ambiente' : !c.fundadores) && c.id !== 'base').map(c => ({ c, d: c.mc.pExtincao - base.mc.pExtincao })).sort((a, b2) => Math.abs(b2.d) - Math.abs(a.d));
     const top = difs[0];
     $('cenSens').innerHTML = `<p class="sub">Mudança na probabilidade de extinção em relação ao original (${pct(base.mc.pExtincao)}):</p>` + difs.map(x => `<div style="margin:6px 0"><div class="comp-l" style="font-size:.82rem"><span>${esc(x.c.nome)}</span><span class="mono" style="color:${x.d > 0 ? C.danger : C.good}">${x.d > 0 ? '+' : ''}${Math.round(x.d * 100)} p.p.</span></div><div class="barra"><i style="width:${Math.min(100, Math.abs(x.d) * 100)}%;background:${x.d > 0 ? C.danger : C.good}"></i></div></div>`).join('') +
-      (top ? `<p class="small" style="margin-top:10px">A alteração com maior efeito foi <b>${esc(top.c.nome)}</b>. ${cen.find(c => c.id === 'F') && cen.find(c => c.id === 'E') ? `Velocidade de regeneração da vegetação (E × F) muda o risco de ${pct(cen.find(c => c.id === 'F').mc.pExtincao)} a ${pct(cen.find(c => c.id === 'E').mc.pExtincao)}.` : ''} Note que mais alimento na primavera nem sempre ajuda: alimenta explosões maiores e colapsos mais profundos.</p>` : '');
+      (top ? `<p class="small" style="margin-top:10px">A alteração com maior efeito foi <b>${esc(top.c.nome)}</b>. ${cen.find(c => c.id === 'F') && cen.find(c => c.id === 'E') ? `Velocidade de regeneração da vegetação (E × F) muda o risco de ${pct(cen.find(c => c.id === 'F').mc.pExtincao)} a ${pct(cen.find(c => c.id === 'E').mc.pExtincao)}.` : ''} Note que mais alimento na estação chuvosa nem sempre ajuda: alimenta explosões maiores e colapsos mais profundos.</p>` : '');
   }
 
   /* ---------------- predadores ---------------- */
   function renderPredadores() {
     const T = Eng.PRED_TIPOS;
-    const repro = (t) => t.migra ? 'não se reproduz na ilha (migra)' : `${t.repro.length > 2 ? 'até 2 ninhadas' : '1 ninhada'}/ano · ~${t.ninhada} filhotes`;
+    const repro = (t) => t.migra ? 'não se reproduz na ilha (migra)' : `${t.repro.length > 2 ? 'até 2 ninhadas' : '1 ninhada'}/ano · ~${fmt1(t.ninhada)} filhotes`;
     $('predCards').innerHTML = Object.keys(T).map(k => {
       const t = T[k];
       return `<div class="cartao pred-card"><div class="pc-top"><span class="pc-ic">${t.icone}</span><b>${t.nome}</b></div><p>${t.resumo}</p>
-        <div class="pc-fatos"><span class="chip">come ~${t.need} coelhos/mês</span><span class="chip">${t.prot >= 0.6 ? 'vegetação protege bem' : t.prot >= 0.4 ? 'vegetação protege um pouco' : 'entra nas tocas'}</span><span class="chip">${repro(t)}</span></div>
+        <div class="pc-fatos"><span class="chip">come ~${fmt1(t.need)} coelhos/mês</span><span class="chip">${t.prot >= 0.6 ? 'vegetação protege bem' : t.prot >= 0.4 ? 'vegetação protege um pouco' : 'entra nas tocas'}</span><span class="chip">${repro(t)}</span></div>
         <button class="btn pri peq" data-predlab="${k}">▶ Simular com ${t.nome.toLowerCase()}</button></div>`;
     }).join('');
     $('predCards').querySelectorAll('[data-predlab]').forEach(b => b.addEventListener('click', () => {
       const k = b.dataset.predlab;
-      resetLab(); $('lpOn_' + k).checked = true; $('lp_' + k).classList.add('on'); sincronizarCentral();
-      aplicarExperimento(true); setTimeout(() => window.irPagina('geral', 'painel'), 300);
+      Object.keys(T).forEach(x => { $('lpOn_' + x).checked = x === k; $('lp_' + x).classList.toggle('on', x === k); });
+      sincronizarCentral(); aplicarExperimento(true);
     }));
-    $('tabPredParam').innerHTML = Object.keys(T).map(k => { const t = T[k]; return `<tr><td class="l">${t.icone} ${t.nome}</td><td class="num">${t.need}</td><td class="num">${t.h}</td><td class="num">${t.juv}×</td><td class="num">${pct(t.prot)}</td><td class="num">${pct(t.alt)}</td><td class="l">${repro(t)}</td></tr>`; }).join('');
+    $('tabPredParam').innerHTML = Object.keys(T).map(k => { const t = T[k]; return `<tr><td class="l">${t.icone} ${t.nome}</td><td class="num">${fmt1(t.need)}</td><td class="num">${fmt1(t.h)}</td><td class="num">${t.juv}×</td><td class="num">${pct(t.prot)}</td><td class="num">${pct(t.alt)}</td><td class="num">${t.migra ? 'até ' + t.max : t.dens}</td><td class="l">${repro(t)}</td></tr>`; }).join('');
     // predadores na simulação atual (página Coelhos)
     const tem = RES.parametros.predadores.length > 0;
     $('cartaoPredRun').hidden = !tem;
@@ -945,13 +1065,17 @@
     const pior = mesmaIlha.reduce((a, b) => b.mc.pExtincao > a.mc.pExtincao ? b : a, mesmaIlha[0] || pc[0]);
     const grande = pc.find(c => c.p.area_ha), grandeSem = (D.cenarios || []).find(c => c.grupo === 'ambiente' && c.p.area_ha === (grande && grande.p.area_ha));
     // texto gerado a partir dos resultados (não presume que predadores ajudam ou atrapalham)
-    const ajuda = melhor.mc.pExtincao < base.mc.pExtincao - 0.15;
+    // Os predadores protegeram as plantas? Compara pico de coelhos, pasto e arbustos no fim com o cenário sem predadores.
+    const plantas = (c) => c.mc.RfinalMed + c.mc.HsFinalMed;
+    const guardiao = mesmaIlha.reduce((a, b) => plantas(b) > plantas(a) ? b : a, mesmaIlha[0] || pc[0]);
+    const protege = plantas(guardiao) > plantas(base) + 0.2 || guardiao.mc.NmaxMed < 0.6 * base.mc.NmaxMed;
     const predVivo = pc.filter(c => c.mc.pPredSobrevive !== null && c.mc.pPredSobrevive >= 0.5);
-    const p1 = ajuda
-      ? `Parece estranho, mas <b>predadores podem salvar os coelhos</b>. Sem predadores, os coelhos se multiplicam até destruir o pasto e depois morrem de fome (chance de sumirem: ${pct(base.mc.pExtincao)}). Com <b>${esc(melhor.curto.toLowerCase())}</b>, a explosão é freada, o pasto sobrevive e a chance cai para <b>${pct(melhor.mc.pExtincao)}</b>.`
-      : `Nesta configuração, <b>nenhum predador impediu o colapso</b> (sem predadores, a chance de os coelhos sumirem é ${pct(base.mc.pExtincao)}; o melhor resultado com predadores foi ${pct(melhor.mc.pExtincao)}, com ${esc(melhor.curto.toLowerCase())}). A explosão dos coelhos destrói o pasto antes que os predadores consigam freá-la.`;
+    const linha3 = (c) => `pico de ${fmt(c.mc.NmaxMed)} coelhos, pasto com ${pct(c.mc.RfinalMed)} das raízes vivas e arbustos com ${pct(c.mc.HsFinalMed)} do que havia`;
+    const p1 = protege
+      ? `<b>Predadores protegem as plantas.</b> Sem predadores, o resultado típico em ${DUR} anos é: ${linha3(base)}. Com <b>${esc(guardiao.curto.toLowerCase())}</b>: ${linha3(guardiao)}. Com menos coelhos, sobra capim na estação seca, as raízes não morrem e a vegetação se recupera por inteiro.`
+      : `Nesta duração (${DUR} anos), <b>nenhum predador chegou a proteger as plantas</b>: sem predadores, ${linha3(base)}; o melhor caso com predadores (${esc(guardiao.curto.toLowerCase())}) teve ${linha3(guardiao)}.`;
     $('predLicao').innerHTML = `<h3>💡 O que os predadores ensinam</h3><p class="pp" style="margin-top:8px">${p1}</p>
-      <p class="small muted">Predadores que dependem quase só dos coelhos (como ${esc(pior.curto.toLowerCase())}: ${pct(pior.mc.pExtincao)}) costumam derrubar a população e depois morrer de fome: é o ciclo predador-presa de Lotka–Volterra. ${predVivo.length ? `Os predadores sobreviveram na maioria das repetições em: ${predVivo.map(c => esc(c.curto.toLowerCase())).join(', ')}.` : 'Em nenhum cenário os predadores sobreviveram na maioria das repetições: numa ilha de 1 km² cabem poucos predadores, e populações tão pequenas somem por fome ou por azar.'} ${grande && grandeSem ? `Numa ilha de ${grande.p.area_ha} ha, a chance de os coelhos sumirem é ${pct(grandeSem.mc.pExtincao)} sem predadores e ${pct(grande.mc.pExtincao)} com ${esc(grande.curto.toLowerCase())}: com mais espaço, predadores podem conviver com os coelhos e frear as explosões.` : 'Experimente a ilha maior na Central de experimento.'}</p>`;
+      <p class="small muted">Chance de os coelhos sumirem: ${pct(base.mc.pExtincao)} sem predadores; entre ${pct(melhor.mc.pExtincao)} (${esc(melhor.curto.toLowerCase())}) e ${pct(pior.mc.pExtincao)} (${esc(pior.curto.toLowerCase())}) com predadores. ${predVivo.length ? `Os predadores se mantiveram na ilha na maioria das repetições em: ${predVivo.map(c => esc(c.curto.toLowerCase()) + ' (' + pct(c.mc.pPredSobrevive) + ')').join(', ')}.` : 'Em nenhum cenário os predadores se mantiveram na maioria das repetições.'} Numa ilha de 1 km² cabem poucos predadores, e populações tão pequenas podem sumir por fome ou por azar: quando isso acontece, os coelhos voltam a explodir. ${grande && grandeSem ? `Numa ilha de ${grande.p.area_ha} ha (${esc(grande.curto.toLowerCase())}), os predadores se mantêm em ${pct(grande.mc.pPredSobrevive)} das repetições.` : ''} Como cada simulação tem a sua sorte, vale simular várias vezes.</p>`;
   }
 
   /* ---------------- laboratório ---------------- */
@@ -980,22 +1104,33 @@
       inp.addEventListener('input', () => { $('out_' + m.k).textContent = fmtParam(m, +inp.value); inp.closest('.slider').classList.toggle('mod', Math.abs(+inp.value - Eng.PADRAO[m.k]) > 1e-9); });
     });
     $('labRodar').addEventListener('click', () => { sincronizarCentral(); sincronizarDuracao(+$('labAnos').value); aplicarExperimento(false); });
-    $('labReset').addEventListener('click', () => { resetLab(); $('labStatus').textContent = 'Valores originais restaurados (clique em Executar para rodar).'; });
+    $('labReset').addEventListener('click', () => { resetLab(); sincronizarCentral(); $('labStatus').textContent = 'Valores originais restaurados (clique em Executar para rodar).'; });
+    // qualquer mudança no Laboratório aparece também na Central
+    ['labEstacoes', 'par_chuva_vies', 'par_area_ha'].forEach(id => $(id).addEventListener('change', sincronizarCentral));
   }
   function fmtParam(m, v) { if (m.k === 'K_referencia') return fmt(v); if (m.k === 'area_ha') return fmt(v) + ' ha'; if (m.k === 'pares_iniciais') return fmt(v) + (v === 1 ? ' casal' : ' casais'); if (m.k === 'chuva_vies') return (v > 0 ? '+' : '') + Math.round(v * 100) + '%'; return fmt2(v) + (m.un && m.un.startsWith('×') ? '×' : ''); }
   function resetLab() {
     Eng.PARAM_META.forEach(m => { const inp = $('par_' + m.k); inp.value = Eng.PADRAO[m.k]; inp.dispatchEvent(new Event('input')); });
-    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '1'; $('labSurtos').value = '1'; $('labEstacoes').value = Eng.PADRAO.estacoes; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';
+    $('labFund').value = 'par_adulto'; $('labSemente').value = 42; $('labReps').value = '12'; $('labSurtos').value = '1'; $('labEstacoes').value = Eng.PADRAO.estacoes; $('labAnos').value = String(DUR); $('labAnosVal').textContent = DUR + ' anos';
     Object.keys(Eng.PRED_TIPOS).forEach(k => { $('lpOn_' + k).checked = false; $('lp_' + k).classList.remove('on'); });
   }
-  function abrirNoLab(p) {
+  // põe nos controles os parâmetros dados (os que faltarem voltam ao padrão)
+  function carregarParametros(p) {
+    const anos = p.anos;
     resetLab();
     Object.keys(p).forEach(k => {
       if (k === 'fundadores') $('labFund').value = p[k];
+      else if (k === 'estacoes') $('labEstacoes').value = p[k];
+      else if (k === 'semente') $('labSemente').value = p[k];
+      else if (k === 'surtos_doenca') $('labSurtos').value = p[k] ? '1' : '0';
       else if (k === 'predadores') p[k].forEach(x => { $('lpOn_' + x.tipo).checked = true; $('lp_' + x.tipo).classList.add('on'); $('lpAno_' + x.tipo).value = x.ano; $('lpN_' + x.tipo).value = x.n; });
       else if ($('par_' + k)) { $('par_' + k).value = p[k]; $('par_' + k).dispatchEvent(new Event('input')); }
     });
+    if (anos) { $('labAnos').value = anos; sincronizarDuracao(anos); }
     sincronizarCentral();
+  }
+  function abrirNoLab(p) {
+    carregarParametros(p);
     window.irPagina('experimentos', 'laboratorio');
     $('labStatus').textContent = 'Parâmetros carregados. Clique em Executar.';
   }
@@ -1008,51 +1143,63 @@
     p.predadores = Object.keys(Eng.PRED_TIPOS).filter(k => $('lpOn_' + k).checked).map(k => ({ tipo: k, ano: clamp(Math.floor(+$('lpAno_' + k).value || 1), 1, p.anos), n: clamp(Math.floor(+$('lpN_' + k).value || 1), 1, 50) }));
     return p;
   }
-  function rodarLab(clicou) {
-    const p = lerLab(), reps = +$('labReps').value;
+  function rodarLab(rolar) {
+    const p = lerLab(), nReps = Math.max(8, +$('labReps').value || 12);
+    const chave = chaveExp(p);
+    parar();
+    const concluir = (res, dt) => {
+      if (p.anos !== DUR) prepararDuracao(p.anos);   // compara com a original da mesma duração
+      sincronizarDuracao(p.anos);
+      RES = res;
+      const padrao = ehPadrao(p, true);
+      if (!LAB || LAB.chave !== chave) LAB = { chave, res: null };
+      if (dt !== null) LAB.res = res;
+      LAB.padrao = padrao;
+      // risco: a ilha original com outra sorte usa as repetições pré-calculadas; um experimento já
+      // calculado é reaproveitado (o risco não depende da sorte sorteada); senão, calcula em segundo plano
+      const chR = chaveExp(Object.assign({}, p, { semente: 0 }));
+      let calcular = false;
+      if (padrao) { labMC = null; cancelarRisco(); }
+      else if (RISCO && RISCO.chave === chR && RISCO.anos >= p.anos) { labMC = Eng.mcDeReps(RISCO.reps, p.anos); cancelarRisco(); }
+      else if (riscoEmCurso && riscoEmCurso.chave === chR && riscoEmCurso.anos >= p.anos) labMC = null;
+      else { labMC = null; calcular = true; }
+      HIST = [{ p: JSON.parse(JSON.stringify(p)), s: resumoCurto(res) }].concat(HIST.filter(x => chaveExp(x.p) !== chave)).slice(0, 6);
+      atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
+      const txt = `${p.anos} anos · ${descreverExp(p)} · sorte nº ${p.semente}`;
+      $('labStatus').textContent = (dt === null ? 'Duração ajustada na hora. ' : `Simulado em ${dt} ms. `) + 'Toda a página mostra este experimento.';
+      $('centralStatus').textContent = 'Simulado: ' + txt + '.';
+      $('bannerTxt').innerHTML = padrao ? `🎲 Mesma ilha do original, com <b>outra sorte</b> (nº ${p.semente}): chuvas, nascimentos e mortes diferentes.` : `⚗️ Experimento: <b>${esc(descreverExp(p))}</b> · sorte nº ${p.semente}.`;
+      renderLabResultado(p); renderResultadoCentral();
+      if (calcular) { calcularRisco(p, nReps, chR); renderHeroiStats(); renderResultadoCentral(); renderLabResultado(p); }
+      if (rolar) setTimeout(() => $('central').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60);
+    };
+    // só a duração mudou e já temos anos suficientes: recorta (idêntico a simular de novo)
+    if (LAB && LAB.chave === chave && LAB.res && LAB.res.parametros.anos >= p.anos) { concluir(Eng.truncar(LAB.res, p.anos), null); return; }
     carregando(true, `Simulando ${p.anos * 12} meses…`);
-    const pausa = () => new Promise(r => setTimeout(r, 15));
-    setTimeout(async () => {
+    setTimeout(() => {
       try {
-        if (p.anos !== DUR) { prepararDuracao(p.anos); sincronizarDuracao(p.anos); }   // compara com a original da mesma duração
         const t0 = performance.now();
         const res = Eng.simular(p);
-        labMC = null;
-        if (reps > 1) {
-          // Monte Carlo em fatias: a página continua respondendo e mostra o progresso
-          const series = [], runs = [];
-          for (let k = 0; k < reps; k++) {
-            carregando(true, `Monte Carlo: repetição ${k + 1} de ${reps}…`);
-            await pausa();
-            const rk = Eng.simular(Object.assign({}, p, { semente: 1000 + k }));
-            series.push(rk.registros.map(x => x.N)); runs.push(Eng.linhaMC(rk));
-          }
-          labMC = Eng.resumirMC(series, runs);
-        }
-        RES = res;
-        atualizarTimebarOpcoes(); renderTudo(); irPara(Math.min(IDX, RES.registros.length - 1));
-        const dt = Math.round(performance.now() - t0);
-        $('labStatus').textContent = `Concluído em ${dt} ms. Toda a página agora mostra este experimento.`;
-        $('centralStatus').textContent = `Experimento simulado: ${p.anos} anos, ${Eng.REGIMES[p.estacoes].curto.toLowerCase()}, sorte nº ${p.semente} (${dt} ms).`;
-        renderLabResultado(p);
+        concluir(res, Math.round(performance.now() - t0));
       } catch (e) {
-        console.error(e); $('labStatus').textContent = 'Erro ao executar: ' + e.message;
+        console.error(e); $('labStatus').textContent = 'Erro ao executar: ' + e.message; $('centralStatus').textContent = 'Erro ao simular: ' + e.message;
       } finally { carregando(false); }
     }, 40);
   }
   function renderLabResultado(p) {
-    const a = ORIG.resumo, b = RES.resumo;
+    if (RES === ORIG) { $('labResultado').innerHTML = ''; return; }
+    const a = ORIG.resumo, b = RES.resumo, mc = mcAtual();
     const mudados = Eng.PARAM_META.filter(m => Math.abs(p[m.k] - Eng.PADRAO[m.k]) > 1e-9).map(m => `${m.rotulo}: ${fmtParam(m, p[m.k])}`);
+    if (p.estacoes !== Eng.PADRAO.estacoes) mudados.push('Estações: ' + Eng.REGIMES[p.estacoes].curto);
     if (p.fundadores !== 'par_adulto') mudados.push('Fundadores: ' + $('labFund').selectedOptions[0].text);
-    if (p.semente !== 42) mudados.push('Semente: ' + p.semente);
     if (!p.surtos_doenca) mudados.push('Surtos desativados');
     p.predadores.forEach(x => mudados.push(`${Eng.PRED_TIPOS[x.tipo].nome}: ${x.n} no ano ${x.ano}`));
     const linha = (l, x, y) => `<tr><td class="l">${l}</td><td class="num">${x}</td><td class="num">${y}</td></tr>`;
-    $('labResultado').innerHTML = `<p class="small">${mudados.length ? 'Alterações: ' + mudados.map(esc).join(' · ') : 'Nenhum parâmetro alterado (o resultado é idêntico ao original).'}</p>
-      <div class="tabela-box" style="max-height:none"><table><thead><tr><th class="l">Indicador</th><th>Original</th><th>Laboratório</th></tr></thead><tbody>
+    $('labResultado').innerHTML = `<p class="small">${mudados.length ? 'Alterações: ' + mudados.map(esc).join(' · ') : 'Nenhum parâmetro alterado: a ilha é a original.'} · Sorte nº ${p.semente} (a original usa a nº 42).</p>
+      <div class="tabela-box" style="max-height:none"><table><thead><tr><th class="l">Indicador</th><th>Original</th><th>Este experimento</th></tr></thead><tbody>
       ${linha('População máxima', fmt(a.Nmax), fmt(b.Nmax))}${linha('População final', fmt(a.Nfinal), fmt(b.Nfinal))}
       ${linha('Extinção nesta trajetória', a.extinta ? 'sim' : 'não', b.extinta ? 'sim' : 'não')}
-      ${linha('Probabilidade de extinção (Monte Carlo)', D.mcBase ? pct(D.mcBase.pExtincao) : '—', labMC ? pct(labMC.pExtincao) + ` (${labMC.reps} rep.)` : 'escolha > 1 repetição')}
+      ${linha('Risco de os coelhos sumirem (várias sortes)', D.mcBase ? pct(D.mcBase.pExtincao) : '—', mc ? pct(mc.pExtincao) + ` (${mc.reps} repetições)` : (riscoProg ? `calculando… ${riscoProg.feito}/${riscoProg.n}` : '—'))}
       ${linha('Colapsos', fmt(a.colapsos), fmt(b.colapsos))}${linha('Crises alimentares', fmt(a.crises), fmt(b.crises))}
       ${linha('Vigor da grama final', pct(a.final.R), pct(b.final.R))}${linha('Arbustos final (vs inicial)', pct(a.final.Hs / a.final.Hs0), pct(b.final.Hs / b.final.Hs0))}
       ${linha('Árvore', a.final.arvViva ? 'viva' : 'morta', b.final.arvViva ? 'viva' : 'morta')}${linha('Saúde final', Math.round(a.final.saude), Math.round(b.final.saude))}
@@ -1103,9 +1250,9 @@
     $('popFaixa').addEventListener('change', () => { const v = $('popFaixa').value; if (!v) G.gPop.setRange(null); else { const [a, b] = v.split('-').map(Number); G.gPop.setRange(a, b); } $('popFaixa').value = v; });
     $('vistaGeral').addEventListener('click', () => { vista = 'geral'; $('vistaGeral').setAttribute('aria-pressed', 'true'); $('vistaDetalhe').setAttribute('aria-pressed', 'false'); renderIlha(); });
     $('vistaDetalhe').addEventListener('click', () => { vista = 'detalhe'; $('vistaDetalhe').setAttribute('aria-pressed', 'true'); $('vistaGeral').setAttribute('aria-pressed', 'false'); renderIlha(); });
-    $('voltarOriginal').addEventListener('click', () => { resetLab(); sincronizarCentral(); prepararDuracao(DUR); RES = ORIG; labMC = null; $('centralStatus').textContent = 'Mostrando a simulação original.'; atualizarTimebarOpcoes(); renderTudo(); irPara(IDX); $('labResultado').innerHTML = ''; $('labStatus').textContent = 'De volta à simulação original.'; });
+    $('voltarOriginal').addEventListener('click', () => { parar(); cancelarRisco(); LAB = null; resetLab(); sincronizarCentral(); prepararDuracao(DUR); RES = ORIG; labMC = null; renderResultadoCentral(); $('centralStatus').textContent = 'Mostrando a simulação original.'; atualizarTimebarOpcoes(); renderTudo(); irPara(IDX); $('labResultado').innerHTML = ''; $('labStatus').textContent = 'De volta à simulação original.'; });
     $('heroiPlay').addEventListener('click', () => { window.irPagina('geral', 'painel'); irPara(0); setTimeout(tocar, 600); });
-    const nomeBase = () => RES === ORIG ? 'ilha40_original' : 'ilha40_laboratorio';
+    const nomeBase = () => RES === ORIG ? 'ilha_original' : 'ilha_experimento_sorte' + RES.parametros.semente;
     $('expCsv').addEventListener('click', () => baixar(nomeBase() + '_sazonal.csv', '﻿' + Eng.csvSazonal(RES), 'text/csv;charset=utf-8'));
     $('expCsvAno').addEventListener('click', () => baixar(nomeBase() + '_anual.csv', '﻿' + Eng.csvAnual(RES), 'text/csv;charset=utf-8'));
     $('expJson').addEventListener('click', () => baixar(nomeBase() + '.json', JSON.stringify(RES, null, 1), 'application/json'));

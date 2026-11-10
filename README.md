@@ -101,6 +101,16 @@ principal: **sem predadores, os coelhos destroem o pasto e somem em ~70% das rep
 que levaria ao colapso. Predadores que dependem só dos coelhos (raposas) costumam morrer de
 fome depois de derrubar a população.
 
+## Revisão v2.5
+
+- Central de experimento reorganizada; depois de cada simulação aparecem o resultado, botões para ver a
+  ilha e assistir, e as simulações anteriores (clique para rever).
+- O risco de os coelhos sumirem é calculado em segundo plano (Web Worker), sem travar a página.
+- Mudar a duração é instantâneo também nos experimentos.
+- Correções: frases com gênero errado ("neste primavera"), tabela de predadores desalinhada, coluna de
+  consanguinidade zerada nos cenários, texto dos predadores que contradizia a tabela, textos presos à
+  primavera, capítulo final que sumia, cenários de estações que não carregavam no Laboratório.
+
 ## Estações e aleatoriedade (motor v2.4)
 
 - **Regimes de estações** (botão na Central de experimento e no Laboratório): **Brasil** (padrão: verão

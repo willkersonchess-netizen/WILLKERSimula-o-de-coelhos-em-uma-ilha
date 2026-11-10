@@ -1,7 +1,7 @@
 ==========================================================================
  ILHA - ANALISE ESTATISTICA COMPLEMENTAR (50 anos)
 ==========================================================================
- Motor v2.4.0 | semente 42 | gerado em 2026-11-09T01:12:28.769Z
+ Motor v2.5.0 | semente 42 | gerado em 2026-11-10T11:29:19.436Z
 
 1. RESUMO DA EXECUCAO ORIGINAL
    Populacao: inicial 2 | maxima 6469 (ano 5, Verao) | final 48
@@ -37,8 +37,8 @@
 7. CENARIOS (25 repeticoes cada, mesmas sementes, 50 anos)
    Cenario                               Grupo         P(ext)  N medio  Colapsos   Grama Pred.vivo
    Chuva média (original)                ambiente         16%      581     14.48     59%         -
-   A · Primaveras secas                  ambiente         12%      529     14.24     69%         -
-   B · Primaveras chuvosas               ambiente         12%      587     14.92     55%         -
+   A · Estação chuvosa fraca             ambiente         12%      529     14.24     69%         -
+   B · Estação chuvosa farta             ambiente         12%      587     14.92     55%         -
    C · Poucos arbustos                   ambiente         12%      539     14.60     48%         -
    D · Muitos arbustos                   ambiente         12%      632     13.20     63%         -
    E · Recuperação lenta                 ambiente         72%      299      6.56     83%         -

@@ -1,4 +1,4 @@
-﻿ano;chuva_mm;chuva_primavera_mm;mult_primavera;temperatura_C;N_max;N_min;N_fim;nascimentos;mortes;grama_media_kg_ha;vigor_raizes;arbustos_lenho_kg_ha;arvore_saude;solo_saude;erosao_t_ha;indice_alimentar;K_primavera;K_sustentavel;F;He_rel;Ne_harmonico;geracoes;saude_ecossistema
+﻿ano;chuva_mm;chuva_estacao_chuvosa_mm;mult_estacao_chuvosa;temperatura_C;N_max;N_min;N_fim;nascimentos;mortes;grama_media_kg_ha;vigor_raizes;arbustos_lenho_kg_ha;arvore_saude;solo_saude;erosao_t_ha;indice_alimentar;K_estacao_chuvosa;K_sustentavel;F;He_rel;Ne_harmonico;geracoes;saude_ecossistema
 1;1351,6;653,5;1,054;21,7;40;13;40;88;50;1003,2;1;1020,5;0,853;0,992;0;1;6333;5379;0,131;0,972;3,9;2;97,2
 2;1177,3;610,8;0,985;22,4;283;81;283;657;414;969,1;1;1043,1;0,848;0,995;0;1;5992;5235;0,235;0,975;6,6;5;97
 3;1374;772,4;1,113;22,7;1797;590;1797;4401;2887;873,8;1;1061,7;0,797;0,996;0,1;0,998;5640;4795;0,252;0,976;9,5;7;94,8

@@ -9,11 +9,11 @@
    ===================================================================== */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.IlhaEngine = factory();
+  else { root.IlhaEngine = factory(); root.IlhaEngineFactory = factory; }
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const VERSAO = '2.4.0';
+  const VERSAO = '2.5.0';
   const ESTACOES = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
   /* ---------------- Regimes de estações ----------------
@@ -144,7 +144,7 @@
 
   const PARAM_META = [
     { k: 'chuva_mult', rotulo: 'Quantidade de chuva', min: 0.5, max: 1.5, passo: 0.05, un: '× média', grupo: 'Clima', desc: 'Multiplica toda a chuva da sequência climática.' },
-    { k: 'chuva_vies', rotulo: 'Tendência das primaveras', min: -0.3, max: 0.3, passo: 0.05, un: '', grupo: 'Clima', desc: 'Desloca a média do multiplicador de chuva da primavera (faixa 70–130%).' },
+    { k: 'chuva_vies', rotulo: 'Chuva na estação chuvosa', min: -0.3, max: 0.3, passo: 0.05, un: '', grupo: 'Clima', desc: 'Desloca a média da chuva da estação chuvosa principal, que varia de 70% a 130% de ano para ano.' },
     { k: 'grama_mult_ini', rotulo: 'Biomassa inicial de grama', min: 0.2, max: 2.5, passo: 0.1, un: '× padrão', grupo: 'Vegetação', desc: 'Grama verde e seca no início (padrão 250 + 400 kg MS/ha).' },
     { k: 'arbusto_mult_ini', rotulo: 'Quantidade inicial de arbustos', min: 0.1, max: 3, passo: 0.1, un: '× padrão', grupo: 'Vegetação', desc: 'Biomassa estrutural de arbustos (padrão 900 kg MS/ha).' },
     { k: 'grama_regen', rotulo: 'Regeneração da grama', min: 0.2, max: 2.5, passo: 0.1, un: '× padrão', grupo: 'Vegetação', desc: 'Velocidade de recuperação do vigor das raízes e do banco de sementes.' },
@@ -161,13 +161,13 @@
     { k: 'pred_mortalidade', rotulo: 'Mortalidade natural dos predadores', min: 0.25, max: 2.5, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Acidentes, doenças e velhice (a fome é calculada à parte).' },
     { k: 'pred_territorio', rotulo: 'Território dos predadores', min: 0.25, max: 3, passo: 0.25, un: '× padrão', grupo: 'Predadores', desc: 'Quantos adultos territoriais cabem por km². Os excedentes viram flutuantes, que não se reproduzem e morrem mais.' },
     { k: 'area_ha', rotulo: 'Tamanho da ilha', min: 50, max: 1000, passo: 50, un: 'ha', grupo: 'Ilha', desc: 'A capacidade de referência continua 6.000: ilha maior = terra mais pobre por hectare e mais espaço para predadores.' },
-    { k: 'K_referencia', rotulo: 'Capacidade de referência (primavera média)', min: 1000, max: 15000, passo: 500, un: 'coelhos', grupo: 'Ilha', desc: 'Premissa do experimento. O crescimento potencial da grama é calibrado a partir dela.' }
+    { k: 'K_referencia', rotulo: 'Capacidade de referência (estação chuvosa média)', min: 1000, max: 15000, passo: 500, un: 'coelhos', grupo: 'Ilha', desc: 'Premissa do experimento. O crescimento potencial da grama é calibrado a partir dela.' }
   ];
 
   const CENARIOS = [
     { id: 'base', nome: 'Chuva média (original)', curto: 'Original', p: {} },
-    { id: 'A', nome: 'A · Primaveras secas', curto: 'Pouca chuva', p: { chuva_vies: -0.15 } },
-    { id: 'B', nome: 'B · Primaveras chuvosas', curto: 'Muita chuva', p: { chuva_vies: 0.15 } },
+    { id: 'A', nome: 'A · Estação chuvosa fraca', curto: 'Pouca chuva', p: { chuva_vies: -0.15 } },
+    { id: 'B', nome: 'B · Estação chuvosa farta', curto: 'Muita chuva', p: { chuva_vies: 0.15 } },
     { id: 'C', nome: 'C · Poucos arbustos', curto: 'Poucos arbustos', p: { arbusto_mult_ini: 0.4 } },
     { id: 'D', nome: 'D · Muitos arbustos', curto: 'Muitos arbustos', p: { arbusto_mult_ini: 2.0 } },
     { id: 'E', nome: 'E · Recuperação lenta', curto: 'Recup. lenta', p: { grama_regen: 0.4, arbusto_regen: 0.4 } },
@@ -463,7 +463,6 @@
     };
     const Kprim = (Gpot) => {
       const E = spinUp(Gpot).E;
-      const stock = estoqueDigestivel(E, Pc.area_ha);
       let pv = 0, pb = 0;
       // a premissa vale para a estação chuvosa principal do regime (média)
       const m0 = RGc.principal * 3;
@@ -471,7 +470,6 @@
       const stockP = estoqueDigestivel(E, Pc.area_ha);
       for (let mo = m0; mo < m0 + 3; mo++) { const v = passoVegetacao(E, Pc, climaMedio(mo), mo, Gpot); pv += v.g * Pc.area_ha; pb += v.gb * Pc.area_ha; }
       return capacidade(stockP, pv, pb, 3);
-      return capacidade(stock, pv, pb, 3);
     };
     let g0 = 50, g1 = 400, k0 = Kprim(g0), k1 = Kprim(g1);
     for (let it = 0; it < 30; it++) {
@@ -1074,7 +1072,7 @@
     i = find(r => r.K > 0 && r.N > r.K);
     if (i > 0) add(i, 'superpop', 'Primeira superpopulação', `${R[i].N} coelhos para uma capacidade estimada de ${R[i].K} nessa estação (${Math.round(R[i].pressao * 100)}%).`, '⚠️', 'alerta', ['capacidade de suporte', 'estação']);
     i = find(r => r.N > P.K_referencia);
-    if (i > 0) add(i, 'supera_ref', `Ultrapassou ${P.K_referencia.toLocaleString('pt-BR')}`, `A população (${R[i].N}) superou a capacidade de referência da primavera média.`, '🚨', 'alerta', ['capacidade de referência']);
+    if (i > 0) add(i, 'supera_ref', `Ultrapassou ${P.K_referencia.toLocaleString('pt-BR')}`, `A população (${R[i].N}) superou a capacidade de referência da estação chuvosa média.`, '🚨', 'alerta', ['capacidade de referência']);
     i = find(r => r.N > 0 && r.indAlim < 0.7);
     if (i > 0) add(i, 'crise_alimentar', 'Primeira crise alimentar', `Os coelhos obtiveram em média só ${Math.round(R[i].indAlim * 100)}% da energia necessária.`, '🍂', 'mau', ['alimento', 'grama seca', 'densidade']);
     i = find(r => r.est === 3 && (r.Nini + r.nasc) > 50 && r.mortes / (r.Nini + r.nasc) > 0.5);
@@ -1280,7 +1278,7 @@
     const R = res.registros, Y = res.parametros.anos, Hs0 = R[0].Hs;
     const anual = (f) => Array.from({ length: Y + 1 }, (_, y) => f(R[y * 4]));
     let arv = null; for (let y = 0; y <= Y; y++) if (!R[y * 4].arvViva) { arv = y; break; }
-    const o = { N: R.map(r => r.N), R: anual(r => r2(r.R)), H: anual(r => r2(r.Hs / Hs0)), S: anual(r => Math.round(r.saude)), A: arv };
+    const o = { N: R.map(r => r.N), R: anual(r => r2(r.R)), H: anual(r => r2(r.Hs / Hs0)), S: anual(r => Math.round(r.saude)), F: anual(r => r.F === null ? null : r2(r.F)), A: arv };
     if (res.parametros.predadores.length) o.P = anual(r => r.predTotal);
     return o;
   }
@@ -1294,7 +1292,7 @@
       const i0 = s.indexOf(0, 1);
       return {
         extinta: s[idx] === 0, mesExt: i0 > 0 ? i0 * 3 : null, Nmax: Math.max(...s), Nfinal: s[idx], Nmedio: Math.round(s.reduce((a, b) => a + b, 0) / s.length),
-        colapsos, crises: 0, arvMorreu: r.A !== null && r.A <= anos, Rfinal: r.R[anos], HsFinal: r.H[anos], Ffinal: null, saude: r.S[anos],
+        colapsos, crises: 0, arvMorreu: r.A !== null && r.A <= anos, Rfinal: r.R[anos], HsFinal: r.H[anos], Ffinal: r.F ? r.F.slice(0, anos + 1).filter(v => v !== null).pop() : null, saude: r.S[anos],
         predSobrevive: r.P ? r.P[anos] > 0 : null, predMax: r.P ? Math.max(...r.P.slice(0, anos + 1)) : 0, predFinal: r.P ? r.P[anos] : 0
       };
     });
@@ -1329,7 +1327,7 @@
     return linhas.join('\n');
   }
   function csvAnual(res) {
-    const cab = ['ano', 'chuva_mm', 'chuva_primavera_mm', 'mult_primavera', 'temperatura_C', 'N_max', 'N_min', 'N_fim', 'nascimentos', 'mortes', 'grama_media_kg_ha', 'vigor_raizes', 'arbustos_lenho_kg_ha', 'arvore_saude', 'solo_saude', 'erosao_t_ha', 'indice_alimentar', 'K_primavera', 'K_sustentavel', 'F', 'He_rel', 'Ne_harmonico', 'geracoes', 'saude_ecossistema'];
+    const cab = ['ano', 'chuva_mm', 'chuva_estacao_chuvosa_mm', 'mult_estacao_chuvosa', 'temperatura_C', 'N_max', 'N_min', 'N_fim', 'nascimentos', 'mortes', 'grama_media_kg_ha', 'vigor_raizes', 'arbustos_lenho_kg_ha', 'arvore_saude', 'solo_saude', 'erosao_t_ha', 'indice_alimentar', 'K_estacao_chuvosa', 'K_sustentavel', 'F', 'He_rel', 'Ne_harmonico', 'geracoes', 'saude_ecossistema'];
     const linhas = [cab.join(';')];
     res.anual.forEach(a => linhas.push([a.ano, a.chuva, a.chuvaPrim, a.multPrim, a.T, a.Nmax, a.Nmin, a.Nfim, a.nasc, a.mortes, a.gramaMedia, a.R, a.arbustos, a.arvore, a.solo, a.erosao, a.alimento, a.Kprim, a.Ksust, a.F, a.He, a.Ne, a.ger, a.saude].map(v => v === null || v === undefined ? '' : String(v).replace('.', ',')).join(';')));
     return linhas.join('\n');

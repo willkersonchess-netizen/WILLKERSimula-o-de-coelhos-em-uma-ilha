@@ -84,7 +84,7 @@
     </div>
   </header>
   <div class="banner-lab" role="status">
-    <span>⚗️ Você está vendo um <b>experimento modificado</b>.</span>
+    <span id="bannerTxt">⚗️ Você está vendo um <b>experimento modificado</b>.</span>
     <button class="btn peq" id="voltarOriginal">Voltar à simulação original</button>
   </div>
 
@@ -122,30 +122,35 @@
           <input type="range" id="ccAnos" min="10" max="100" step="1" value="50" aria-label="Duração em anos">
           <div class="cc-escala"><span>10</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
         </div>
-        <div class="cc-bloco">
-          <div class="cc-t">Predadores <span class="ajuda" tabindex="0" data-dica="Toque para colocar ou tirar. Gatos, raposas e arminhos chegam no ano 3; aves de rapina caçam desde o início. Detalhes no Laboratório.">?</span></div>
+        <div class="cc-bloco cc-pred">
+          <div class="cc-t">Predadores <span class="ajuda" tabindex="0" data-dica="Toque para colocar ou tirar. Gatos, raposas e arminhos chegam no ano 3; aves de rapina caçam desde o início. No Laboratório dá para mudar o ano e a quantidade.">?</span></div>
           <div class="chips-sel" id="ccPred">
             <button data-t="gato" aria-pressed="false">🐈 Gatos</button>
             <button data-t="raposa" aria-pressed="false">🦊 Raposas</button>
             <button data-t="arminho" aria-pressed="false">🐾 Arminhos</button>
             <button data-t="rapina" aria-pressed="false">🦅 Aves de rapina</button>
           </div>
+          <p class="cc-nota">Predadores comem coelhos; com menos coelhos, sobra pasto.</p>
         </div>
         <div class="cc-bloco">
-          <div class="cc-t">Estações predominantes <span class="ajuda" tabindex="0" data-dica="Brasil: verão chuvoso e inverno seco dominam; primavera e outono são transições. Primavera e outono: duas épocas de chuva. Quatro estações: clima temperado, com inverno frio.">?</span></div>
-          <div class="seg" id="ccEst"><button data-v="brasil" class="on">Verão e inverno</button><button data-v="bimodal">Primavera e outono</button><button data-v="temperado">4 estações</button></div>
-          <div class="cc-t" style="margin-top:12px">Chuva na estação chuvosa</div>
+          <div class="cc-t">Estações predominantes <span class="ajuda" tabindex="0" data-dica="Verão e inverno (como no Brasil): verão chuvoso e inverno seco dominam; primavera e outono são transições. Primavera e outono: duas épocas de chuva. Quatro estações: clima temperado, com inverno frio.">?</span></div>
+          <div class="seg col" id="ccEst"><button data-v="brasil" class="on">☀️ Verão e inverno</button><button data-v="bimodal">🌸 Primavera e outono</button><button data-v="temperado">❄️ Quatro estações</button></div>
+        </div>
+        <div class="cc-bloco">
+          <div class="cc-t">Chuva na estação chuvosa</div>
           <div class="seg" id="ccClima"><button data-v="-0.15">Pouca</button><button data-v="0" class="on">Normal</button><button data-v="0.15">Muita</button></div>
-          <div class="cc-t" style="margin-top:12px">Tamanho da ilha <span class="ajuda" tabindex="0" data-dica="A capacidade continua 6.000 coelhos: ilha maior significa terra mais pobre por hectare e mais espaço para predadores.">?</span></div>
+          <div class="cc-t" style="margin-top:14px">Tamanho da ilha <span class="ajuda" tabindex="0" data-dica="A capacidade continua 6.000 coelhos: ilha maior significa terra mais pobre por hectare e mais espaço para predadores.">?</span></div>
           <div class="seg" id="ccIlha"><button data-v="100" class="on">100 ha</button><button data-v="400">400 ha</button><button data-v="800">800 ha</button></div>
         </div>
-        <div class="cc-bloco cc-acao">
-          <button class="btn pri grande" id="ccSimular">▶ Simular</button>
-          <button class="btn" id="ccReset">Restaurar original</button>
-          <label class="small" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="ccSorteNova" checked style="accent-color:var(--preto)"> 🎲 Sorte nova a cada simulação <span class="ajuda" tabindex="0" data-dica="Como na natureza, cada simulação tem chuvas, nascimentos e mortes diferentes. Desmarque para repetir exatamente a mesma sorte (a semente aparece no Laboratório).">?</span></label>
-          <a class="link-sutil" href="#laboratorio">Mais controles no Laboratório →</a>
-        </div>
       </div>
+      <div class="cc-acoes">
+        <button class="btn pri grande" id="ccSimular">▶ Simular</button>
+        <button class="btn" id="ccReset">Restaurar original</button>
+        <label class="cc-sorte"><input type="checkbox" id="ccSorteNova" checked> 🎲 Sorte nova a cada simulação <span class="ajuda" tabindex="0" data-dica="Como na natureza, cada simulação tem chuvas, nascimentos e mortes diferentes. Desmarque para repetir exatamente a mesma sorte (o número aparece no Laboratório).">?</span></label>
+        <a class="link-sutil" href="#laboratorio">Mais controles no Laboratório →</a>
+      </div>
+      <div class="cc-res" id="ccRes" aria-live="polite"></div>
+      <div class="cc-hist" id="ccHist" hidden></div>
     </div>
   </section>
 
@@ -263,7 +268,7 @@
 
   <section class="sec" id="capacidade">
     <div class="sec-cab"><div><span class="kicker">06 · Capacidade de suporte</span><h2>Quantos coelhos a ilha consegue alimentar?</h2>
-      <p class="pp">Há comida para muitos coelhos na primavera, mas para bem menos no inverno. E, quanto mais a vegetação é destruída, menos a ilha alimenta.</p>
+      <p class="pp">Há comida para muitos coelhos na estação chuvosa, mas para bem menos na estação seca. E, quanto mais a vegetação é destruída, menos a ilha alimenta.</p>
       <p class="small muted"><b>Capacidade da estação</b> <span class="ajuda" tabindex="0" data-dica="Quantos coelhos adultos a comida daquela estação sustentaria sem destruir as plantas (usando 45% do alimento).">?</span> · <b>Capacidade sustentável</b> <span class="ajuda" tabindex="0" data-dica="A menor das quatro capacidades do ano: a estação mais difícil decide quantos coelhos o ano todo aguenta.">?</span> · a estação chuvosa média foi calibrada para 6.000.</p></div></div>
     <div class="cartao"><h3>Coelhos × capacidade</h3><p class="sub">Área vermelha: mais coelhos do que comida.</p><div id="gCap"></div></div>
     <details class="mais"><summary>Mais gráficos de alimentação (3)</summary>
@@ -277,7 +282,7 @@
 
   <section class="sec" id="dinamica">
     <div class="sec-cab"><div><span class="kicker">07 · Nascimentos e mortes</span><h2>A vida dos coelhos</h2>
-      <p class="pp">Na primavera nascem muitos filhotes, mas boa parte morre no ninho. No inverno quase não há nascimentos, e a fome mata mais.</p></div></div>
+      <p class="pp">Na estação chuvosa nascem muitos filhotes, mas boa parte morre no ninho. Na estação seca quase não há nascimentos, e a fome mata mais.</p></div></div>
     <div class="grid g2">
       <div class="cartao span2"><h3>Nascimentos e mortes por estação</h3><p class="sub">Verde para cima: nascimentos. Vermelho para baixo: mortes.</p><div id="gNascMort"></div></div>
       <div class="cartao"><h3>Pirâmide de idades <span class="muted small" id="pirQuando"></span></h3><p class="sub">Machos à esquerda, fêmeas à direita.</p><div class="piramide" id="piramide"></div></div>
@@ -357,9 +362,9 @@
           <select id="labEstacoes"><option value="brasil">Brasil: verão chuvoso e inverno seco</option><option value="bimodal">Primavera e outono chuvosos</option><option value="temperado">Quatro estações (temperado)</option></select></label>
         <label class="slider"><span class="sl-top"><span>Fundadores</span></span>
           <select id="labFund"><option value="par_adulto">Casal adulto (original)</option><option value="dois_machos">Dois machos</option><option value="dois_filhotes">Casal de filhotes (1 mês)</option><option value="femea_infertil">Fêmea infértil</option></select></label>
-        <label class="slider"><span class="sl-top"><span>Repetições</span><span class="ajuda" tabindex="0" data-dica="Rodar várias vezes com sortes diferentes mostra a probabilidade de cada resultado (Monte Carlo).">?</span></span>
-          <select id="labReps"><option value="1">1 (só a trajetória)</option><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
-        <label class="slider"><span class="sl-top"><span>Semente aleatória</span><span class="ajuda" tabindex="0" data-dica="Número que define a 'sorte' (clima e eventos). A mesma semente sempre dá o mesmo resultado.">?</span></span><input type="number" id="labSemente" value="42" min="1" max="999999"></label>
+        <label class="slider"><span class="sl-top"><span>Repetições para o risco</span><span class="ajuda" tabindex="0" data-dica="Depois de cada simulação, o experimento é repetido com outras sortes, em segundo plano, para estimar a chance de os coelhos sumirem (Monte Carlo).">?</span></span>
+          <select id="labReps"><option value="12">12 (rápido)</option><option value="25">25</option><option value="50">50 (mais preciso)</option></select></label>
+        <label class="slider"><span class="sl-top"><span>Número da sorte (semente)</span><span class="ajuda" tabindex="0" data-dica="Número que define a 'sorte' (clima e eventos). A mesma semente sempre dá o mesmo resultado.">?</span></span><input type="number" id="labSemente" value="42" min="1" max="999999"></label>
         <div class="grupo-t">Predadores</div>
         <div class="lab-pred" id="labPred"></div>
       </div>
@@ -435,7 +440,7 @@ ninhada ~ Poisson(5 · (0,7+0,3·cond) · e^(−B_fec·F_mãe))
 ninho = 0,82 · cond^0,7 · hidratação · enchente · toca · frio · e^(−B_juv·F)
 P(morte/mês) = 1 − Π(1 − risco_k)</div>
           <p>Riscos: fome, desidratação, doença endêmica, surto, idade, clima, basal e predação. Mixomatose e doença hemorrágica viral não foram incluídas (precisam ser trazidas de fora). Genética: herança explícita em 48 loci; depressão endogâmica por equivalentes letais (2B = 3,14, Ralls et al. 1988).</p>
-          <h3>Verificação de realismo (motor v2.3)</h3>
+          <h3>Verificação de realismo (regime Brasil, motor v2.5)</h3>
           <ul><li>Crescimento no 1º ano: ~14× (casal → ~30 coelhos), compatível com introduções históricas.</li><li>Idade mediana de morte ~19 meses; máxima ~5–6 anos; razão sexual 50%.</li><li>Filhotes emergidos que sobrevivem ao 1º ano: ~60% (sem predadores).</li><li>Fêmeas: ~2,5 ninhadas registradas/ano em anos bons (literatura: 3–5; a contagem inclui fêmeas recém-amadurecidas).</li></ul>
         </div>
       </div>

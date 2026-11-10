@@ -1,6 +1,6 @@
 # Ilha — relatório automático (50 anos)
 
-Gerado em 2026-11-09T01:12:28.769Z · motor v2.4.0 · semente 42. No site é possível escolher de 10 a 100 anos.
+Gerado em 2026-11-10T11:29:19.436Z · motor v2.5.0 · semente 42. No site é possível escolher de 10 a 100 anos.
 
 População: 2 → máx 6469 → final 48 · nascimentos 93631 · mortes 93585 · colapsos 14
 
@@ -77,8 +77,8 @@ Nesta execução a população sobreviveu (mínimo após o primeiro ano: 8). A p
 | Cenário | P(extinção) | N médio | Colapsos | Predador sobrevive |
 |---|---|---|---|---|
 | Chuva média (original) | 16% | 581 | 14.48 | — |
-| A · Primaveras secas | 12% | 529 | 14.24 | — |
-| B · Primaveras chuvosas | 12% | 587 | 14.92 | — |
+| A · Estação chuvosa fraca | 12% | 529 | 14.24 | — |
+| B · Estação chuvosa farta | 12% | 587 | 14.92 | — |
 | C · Poucos arbustos | 12% | 539 | 14.6 | — |
 | D · Muitos arbustos | 12% | 632 | 13.2 | — |
 | E · Recuperação lenta | 72% | 299 | 6.56 | — |
