@@ -8,6 +8,8 @@
 (function (root) {
   'use strict';
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  // textos desenhados no canvas passam pelo tradutor (os do HTML são traduzidos pelo observador do i18n)
+  const tx = (s) => (window.I18N && s !== null && s !== undefined ? window.I18N.t(String(s)) : s);
   const fmtPadrao = (v) => {
     if (v === null || v === undefined || isNaN(v)) return '—';
     const a = Math.abs(v);
@@ -142,7 +144,7 @@
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, g.W, g.H);
       if (!this._legOk) { this._legenda(); this._legOk = true; }
-      if (g.n < 2) { c.fillStyle = css('--muted'); c.font = '13px ' + css('--sans'); c.textAlign = 'center'; c.fillText(this.o.vazio || 'Sem dados para exibir', g.W / 2, g.H / 2); return; }
+      if (g.n < 2) { c.fillStyle = css('--muted'); c.font = '13px ' + css('--sans'); c.textAlign = 'center'; c.fillText(tx(this.o.vazio || 'Sem dados para exibir'), g.W / 2, g.H / 2); return; }
       const d = this._dominio(g); this._d = d; this._g = g;
       const grid = css('--border'), muted = css('--muted');
       c.font = '11px ' + css('--mono');
@@ -151,8 +153,8 @@
       if (this.o.log) { ticks = [0, 1, 10, 100, 1000, 10000, 100000].filter(t => t >= d.mn && t <= d.mx); }
       else ticks = niceTicks(d.mn, d.mx, Math.max(3, Math.floor((g.y1 - g.y0) / 46)));
       c.strokeStyle = grid; c.lineWidth = 1; c.fillStyle = muted; c.textAlign = 'right'; c.textBaseline = 'middle';
-      ticks.forEach(t => { const y = Math.round(this._y(g, d, t)) + .5; c.beginPath(); c.moveTo(g.x0, y); c.lineTo(g.x1, y); c.stroke(); c.fillText(this.o.fmtY(t), g.x0 - 7, y); });
-      if (this.o.rotuloY) { c.save(); c.translate(12, (g.y0 + g.y1) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText(this.o.rotuloY, 0, 0); c.restore(); }
+      ticks.forEach(t => { const y = Math.round(this._y(g, d, t)) + .5; c.beginPath(); c.moveTo(g.x0, y); c.lineTo(g.x1, y); c.stroke(); c.fillText(tx(this.o.fmtY(t)), g.x0 - 7, y); });
+      if (this.o.rotuloY) { c.save(); c.translate(12, (g.y0 + g.y1) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillStyle = muted; c.font = '11px ' + css('--sans'); c.fillText(tx(this.o.rotuloY), 0, 0); c.restore(); }
       // grade X
       const span = g.i1 - g.i0;
       const larg = g.x1 - g.x0;
@@ -162,7 +164,7 @@
       for (let i = Math.ceil(g.i0 / passo) * passo; i <= g.i1; i += passo) {
         const x = Math.round(this._x(g, i)) + .5;
         c.strokeStyle = grid; c.globalAlpha = .55; c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke(); c.globalAlpha = 1;
-        const lab = this.o.rotuloX(i);
+        const lab = tx(this.o.rotuloX(i));
         if (lab !== null) {
           const tw = c.measureText(lab).width;
           c.textAlign = x + tw / 2 > g.W - 2 ? 'right' : x - tw / 2 < 2 ? 'left' : 'center';
@@ -252,7 +254,7 @@
         if (r.y < d.mn || r.y > d.mx) return;
         const y = Math.round(this._y(g, d, r.y)) + .5;
         c.strokeStyle = r.cor; c.lineWidth = 1.3; c.setLineDash([6, 5]); c.beginPath(); c.moveTo(g.x0, y); c.lineTo(g.x1, y); c.stroke(); c.setLineDash([]);
-        if (r.texto) { c.fillStyle = r.cor; c.font = '11px ' + css('--sans'); c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText(r.texto, g.x1 - 4, y - 3); }
+        if (r.texto) { c.fillStyle = r.cor; c.font = '11px ' + css('--sans'); c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText(tx(r.texto), g.x1 - 4, y - 3); }
       });
       // marcadores de eventos
       c.font = '13px ' + css('--sans'); c.textAlign = 'center'; c.textBaseline = 'top';

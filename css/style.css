@@ -467,3 +467,50 @@ details.mais[open] > summary { margin-bottom: 14px; }
 .hist { cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); border-radius: 99px; padding: 4px 11px; font-size: .76rem; color: var(--text2); }
 .hist:hover { border-color: var(--text); color: var(--text); }
 @media (max-width: 640px) { .cc-acoes .link-sutil { margin-left: 0; } }
+/* ---------- v3: idioma, poderes, mapa, sala de aula ---------- */
+.lang { display: inline-flex; background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 3px; flex-shrink: 0; }
+.lang button { border: 0; background: none; padding: 5px 9px; border-radius: 7px; cursor: pointer; font-size: .78rem; font-weight: 600; color: var(--text2); }
+.lang button.on { background: var(--preto); color: #fff; }
+.poderes { margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.pd-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.pd-btns { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 6px; }
+.pd-btn { display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); border-radius: 10px; padding: 7px 10px; font-size: .8rem; color: var(--text); transition: border-color .15s, transform .1s; }
+.pd-btn i { font-style: normal; font-size: 1.1rem; }
+.pd-btn:hover:not(:disabled) { border-color: var(--text); transform: translateY(-1px); }
+.pd-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pd-lista { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pd-lista:empty { display: none; }
+.pd-item { display: inline-flex; border: 1px solid var(--border2); border-radius: 99px; overflow: hidden; background: var(--creme); }
+.pd-item button { border: 0; background: none; cursor: pointer; font-size: .76rem; padding: 4px 9px; color: var(--text); }
+.pd-item .pd-x { border-left: 1px solid var(--border2); font-size: .9rem; color: var(--danger); }
+.sm-box { margin-top: 16px; }
+.sm-box:empty { display: none; }
+.sm-grade { display: grid; gap: 4px; align-items: stretch; max-width: 720px; }
+.sm-cel { border: 0; border-radius: 8px; min-height: 46px; cursor: pointer; font-family: var(--mono); font-size: .8rem; color: #1c1c1a; transition: transform .1s; }
+.sm-cel:hover { transform: scale(1.05); outline: 2px solid var(--text); }
+.sm-rot { font-family: var(--mono); font-size: .72rem; color: var(--muted); display: grid; place-items: center end; padding-right: 6px; white-space: nowrap; }
+.sm-rot.x { place-items: start center; padding: 2px 0 0; }
+.sm-eixo-y, .sm-eixo-x { font-size: .8rem; color: var(--text2); margin: 4px 0; }
+.sm-eixo-x { max-width: 720px; text-align: center; }
+.aula h3 { margin: 6px 0 12px; font-family: var(--serif); font-weight: 500; font-size: 1.12rem; line-height: 1.3; }
+.aula-ops { display: grid; gap: 6px; margin-bottom: 10px; }
+.aula-op { text-align: left; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); border-radius: 10px; padding: 9px 12px; font-size: .9rem; color: var(--text); }
+.aula-op:hover:not(:disabled) { border-color: var(--text); }
+.aula-op:disabled { cursor: default; opacity: .75; }
+.aula-op.certa { background: #dcecd9; border-color: var(--good); opacity: 1; font-weight: 500; }
+.aula-op.errada { background: #f6ddd6; border-color: var(--danger); opacity: 1; }
+.aula-res { font-size: .88rem; color: var(--text2); border-left: 3px solid var(--warn); padding-left: 10px; }
+.aula-res.ok { border-left-color: var(--good); }
+.aula-disc { margin: 0; padding-left: 20px; color: var(--text2); display: grid; gap: 6px; }
+.tecla { display: inline-block; border: 1px solid var(--border2); border-bottom-width: 2px; border-radius: 6px; padding: 0 6px; font-family: var(--mono); font-size: .76rem; background: var(--surface2); color: var(--text); }
+.topo-btn { position: fixed; right: 18px; bottom: calc(var(--timebar-h) + 14px); z-index: 55; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface); cursor: pointer; font-size: 1rem; box-shadow: var(--shadow); }
+@media (max-width: 720px) { .lang button { padding: 5px 6px; } .dur-mini { display: none; } }
+@media print { .poderes, .topo-btn, #sensibilidade, #aula, #sobre { display: none !important; } }
+.hist-d{display:inline-block;max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+
+#genealogia{max-width:100%;overflow-x:auto}
+#genealogia svg{max-width:100%;height:auto}
+#genetica *{min-width:0}
+#genetica .genealogia svg{min-width:720px}
+#sensibilidade *{min-width:0}
+#sensibilidade select{width:100%;max-width:100%}

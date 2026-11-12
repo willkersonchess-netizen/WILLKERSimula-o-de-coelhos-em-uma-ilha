@@ -160,3 +160,15 @@ O site é estático (HTML + CSS + JS); basta publicar a pasta, sem `_antigo/`.
    arbustos sem limite (+1903%), sem balanço de massa, sem passo mensal e sem cenários.
 6. `index.html` lia `simulationData.year` (a chave era `years`) e quebrava; números fixos no HTML.
 7. Os `.bat` usavam `& "python.exe"` (sintaxe de PowerShell), que não funciona no cmd.
+
+## Novidades da versão 3.0
+
+- **Três idiomas**: inglês (padrão), espanhol e português, com botão EN / ES / PT no topo. Os textos ficam em `js/i18n-dict.js` (um par por linha: português, inglês, espanhol) e o motor de tradução em `js/i18n.js`. Para corrigir uma tradução, basta editar a linha no dicionário.
+- **Intervir na ilha**: pause em qualquer momento e aja como gestor (caçar, soltar coelhos ou predadores, plantar arbustos, semear ou cercar o pasto, provocar seca, chuva ou doença). O passado não muda; o futuro é recalculado.
+- **Presas alternativas que acabam**: aves, insetos e lagartos são uma população própria, que diminui quando é muito caçada.
+- **Mapa de sensibilidade**: escolha dois controles e veja, num mapa de cores, onde a ilha vai bem ou mal.
+- **Modo sala de aula**: seis perguntas no formato "preveja, simule e compare", além de perguntas para discussão.
+- **Relatório exportável** (HTML pronto para imprimir ou salvar em PDF) e **link compartilhável** de cada experimento.
+- Seções "Sobre o site", privacidade, como citar e atalhos de teclado.
+
+Limites conhecidos: as fórmulas do método e os cabeçalhos dos arquivos CSV continuam em português.

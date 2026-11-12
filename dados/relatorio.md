@@ -1,6 +1,6 @@
 # Ilha — relatório automático (50 anos)
 
-Gerado em 2026-11-10T11:29:19.436Z · motor v2.5.0 · semente 42. No site é possível escolher de 10 a 100 anos.
+Gerado em 2026-11-10T16:40:25.724Z · motor v3.0.0 · semente 42. No site é possível escolher de 10 a 100 anos.
 
 População: 2 → máx 6469 → final 48 · nascimentos 93631 · mortes 93585 · colapsos 14
 
@@ -88,13 +88,13 @@ Nesta execução a população sobreviveu (mínimo após o primeiro ano: 8). A p
 | I · Ilha maior (400 ha) | 32% | 547 | 2 | — |
 | Estações: primavera e outono | 40% | 517 | 9.64 | — |
 | Estações: quatro estações (temperado) | 40% | 422 | 7.32 | — |
-| Gatos ferais (4 no ano 3) | 12% | 78 | 3.8 | 60% |
-| Raposas (casal no ano 3) | 12% | 545 | 14.12 | 0% |
-| Arminhos (4 no ano 3) | 32% | 565 | 10.96 | 0% |
+| Gatos ferais (4 no ano 3) | 12% | 465 | 6.24 | 24% |
+| Raposas (casal no ano 3) | 12% | 546 | 14 | 0% |
+| Arminhos (4 no ano 3) | 32% | 565 | 11.04 | 0% |
 | Aves de rapina (desde o ano 1) | 12% | 571 | 13.36 | 64% |
-| Gatos junto com os coelhos (ano 1) | 8% | 71 | 2.08 | 76% |
-| Gatos + aves de rapina | 12% | 560 | 11.16 | 92% |
-| Gatos numa ilha maior (400 ha) | 12% | 281 | 0.36 | 96% |
+| Gatos junto com os coelhos (ano 1) | 8% | 75 | 3.56 | 56% |
+| Gatos + aves de rapina | 12% | 564 | 12.72 | 84% |
+| Gatos numa ilha maior (400 ha) | 12% | 289 | 0.4 | 96% |
 | Dois machos | 100% | 0 | 0 | — |
 | Casal de filhotes (1 mês) | 36% | 540 | 10.64 | — |
 | Fêmea infértil | 100% | 0 | 0 | — |

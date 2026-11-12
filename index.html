@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ilha · O Experimento dos Dois Coelhos</title>
   <meta name="description" content="Simulação ecológica baseada em indivíduos: de 10 a 100 anos de uma ilha isolada a partir de um único casal de coelhos, com predadores opcionais.">
+  <meta name="theme-color" content="#f5f4ef">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Island · The Two Rabbits Experiment">
+  <meta property="og:description" content="An individual-based ecological simulation: two rabbits, one island, up to 100 years. Add predators, change the climate, intervene and watch what happens.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1c1a'/%3E%3Cellipse cx='16' cy='19' rx='10' ry='6' fill='%23e9e4d2'/%3E%3Cellipse cx='16' cy='18' rx='7.5' ry='4.5' fill='%237aa45f'/%3E%3C/svg%3E">
   <!-- Fontes (opcionais: sem internet, o site usa fontes do sistema) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +18,7 @@
 </head>
 <body>
 <a class="sr-only" href="#conteudo">Pular para o conteúdo</a>
+<noscript><div style="padding:24px;font-family:sans-serif">This simulator needs JavaScript to run. · Este simulador precisa de JavaScript. · Este simulador necesita JavaScript.</div></noscript>
 
 <!-- ícones (traço, estilo linha) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -58,9 +63,12 @@
     <a href="#predadores"><svg class="ic"><use href="#i-pata"/></svg>Predadores</a>
     <a href="#cenarios"><svg class="ic"><use href="#i-camadas"/></svg>Cenários</a>
     <a href="#laboratorio"><svg class="ic"><use href="#i-frasco"/></svg>Laboratório</a>
+    <a href="#sensibilidade"><svg class="ic"><use href="#i-painel"/></svg>Mapa de sensibilidade</a>
+    <a href="#aula"><svg class="ic"><use href="#i-luz"/></svg>Sala de aula</a>
     <span class="menu-t">Resultado</span>
     <a href="#relatorio"><svg class="ic"><use href="#i-doc"/></svg>Relatório</a>
     <a href="#metodo"><svg class="ic"><use href="#i-livro"/></svg>Método e glossário</a>
+    <a href="#sobre"><svg class="ic"><use href="#i-doc"/></svg>Sobre o site</a>
   </nav>
   <div class="lateral-cta">
     <svg class="ic grande"><use href="#i-frasco"/></svg>
@@ -79,6 +87,7 @@
     <div class="topo-dir">
       <label class="dur-mini" title="Duração da simulação"><svg class="ic"><use href="#i-relogio"/></svg>
         <input type="range" id="durTopo" min="10" max="100" step="1" value="50" aria-label="Duração em anos"><output id="durTopoVal">50 anos</output></label>
+      <div class="lang notr" id="langSel" role="group" aria-label="Language"><button data-l="en">EN</button><button data-l="es">ES</button><button data-l="pt">PT</button></div>
       <span class="fonte-badge" id="fonteBadge">Original</span>
       <a class="btn pri" href="#laboratorio"><span class="mais-ic">＋</span> <span class="so-desk">Novo experimento</span></a>
     </div>
@@ -94,7 +103,7 @@
     <div class="heroi">
       <div class="heroi-txt">
         <span class="kicker">Simulação baseada em indivíduos</span>
-        <h1>Dois coelhos.<br>Uma ilha.<br><em><span class="tAnosExtenso">Cinquenta</span> anos.</em></h1>
+        <h1>Dois coelhos.<br>Uma ilha.<br><em><span class="tAnosExtenso notr">Cinquenta</span> anos.</em></h1>
         <p class="lead">Uma ilha isolada, que alimentaria cerca de 6.000 coelhos na estação mais chuvosa, recebe um único casal. Cada coelho nasce, come, envelhece e morre dentro do modelo. O que acontece com eles e com a ilha?</p>
         <div class="botoes">
           <button class="btn pri" id="heroiPlay">▶ Assistir à história</button>
@@ -182,6 +191,12 @@
           <div id="ilhaSvg"></div>
         </div>
         <details class="mais"><summary>Legenda da ilustração</summary><div class="legenda" id="ilhaLegenda"></div></details>
+        <div class="poderes" id="poderes">
+          <div class="pd-cab"><b>Intervir na ilha</b><span class="muted small" id="pdQuando"></span></div>
+          <p class="cc-nota" style="margin:0 0 8px">Pause no momento que quiser e aja como um gestor da ilha. A história até ali não muda; o futuro é recalculado.</p>
+          <div class="pd-btns" id="pdBtns"></div>
+          <div class="pd-lista" id="pdLista"></div>
+        </div>
       </div>
       <div>
         <div class="momento"><span class="quando" id="momentoQuando">—</span><span class="estacao-chip" id="momentoChip"></span></div>
@@ -287,7 +302,7 @@
       <div class="cartao span2"><h3>Nascimentos e mortes por estação</h3><p class="sub">Verde para cima: nascimentos. Vermelho para baixo: mortes.</p><div id="gNascMort"></div></div>
       <div class="cartao"><h3>Pirâmide de idades <span class="muted small" id="pirQuando"></span></h3><p class="sub">Machos à esquerda, fêmeas à direita.</p><div class="piramide" id="piramide"></div></div>
       <div class="cartao"><h3>Do que os coelhos morreram</h3><p class="sub">Total acumulado por causa.</p><div id="gMortAcum"></div></div>
-      <div class="cartao span2" id="cartaoPredRun" hidden><h3>Predadores nesta simulação</h3><p class="sub">Adultos e filhotes de cada tipo ao longo do tempo.</p><div id="gPredRun"></div></div>
+      <div class="cartao span2" id="cartaoPredRun" hidden><h3>Predadores nesta simulação</h3><p class="sub">Adultos e filhotes de cada tipo ao longo do tempo.</p><div id="gPredRun"></div><h3 style="margin-top:16px">Presas alternativas dos predadores</h3><p class="sub">Aves, insetos e lagartos que restam na ilha (1 = como no início). Quando são muito caçados, diminuem, e os predadores passam a depender mais dos coelhos.</p><div id="gAlt"></div></div>
     </div>
     <details class="mais"><summary>Mais gráficos da população (5)</summary>
       <div class="grid g2">
@@ -382,15 +397,47 @@
     </div>
   </section>
 
+  <section class="sec destaque" id="sensibilidade">
+    <div class="sec-cab"><div><span class="kicker">12 · Mapa de sensibilidade</span><h2>O que acontece quando dois fatores mudam juntos?</h2>
+      <p class="pp">Escolha dois controles. O site simula todas as combinações e pinta o mapa: verde onde a ilha vai bem, vermelho onde vai mal.</p>
+      <p class="small muted">Parte do experimento que está na tela (predadores, estações e demais controles). Cada quadrado é a média de várias simulações com sortes diferentes.</p></div></div>
+    <div class="cartao">
+      <div class="lab-grid">
+        <label class="slider"><span class="sl-top"><span>Eixo horizontal</span></span><select id="smX"></select></label>
+        <label class="slider"><span class="sl-top"><span>Eixo vertical</span></span><select id="smY"></select></label>
+        <label class="slider"><span class="sl-top"><span>O que medir</span></span><select id="smM"><option value="ext">Chance de os coelhos sumirem</option><option value="nmed">Coelhos em média</option><option value="pasto">Pasto vivo no fim</option><option value="arb">Arbustos no fim</option></select></label>
+        <label class="slider"><span class="sl-top"><span>Precisão</span></span><select id="smP"><option value="5x3">Rápida (5 × 5, 3 sortes)</option><option value="6x5">Boa (6 × 6, 5 sortes)</option><option value="7x8">Alta (7 × 7, 8 sortes)</option></select></label>
+      </div>
+      <div class="botoes"><button class="btn pri" id="smRodar">▶ Calcular mapa</button><button class="btn" id="smParar" hidden>Parar</button><span class="hint" id="smStatus"></span></div>
+      <div class="sm-box" id="smBox"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="aula">
+    <div class="sec-cab"><div><span class="kicker">13 · Modo sala de aula</span><h2>Preveja, simule e compare</h2>
+      <p class="pp">Seis perguntas sobre a ilha. Primeiro diga o que você acha que vai acontecer; depois o simulador mostra o resultado e explica por quê.</p></div>
+      <div class="ctrl-linha"><span class="estacao-chip" id="aulaPlacar"></span><button class="btn peq" id="aulaReset">Recomeçar</button></div></div>
+    <div class="grid g2" id="aulaBox"></div>
+    <details class="mais"><summary>Para professores: perguntas para discussão</summary>
+      <div class="cartao"><ol class="aula-disc">
+        <li>Por que uma ilha que alimenta 6.000 coelhos na estação chuvosa não consegue manter 6.000 coelhos o ano todo?</li>
+        <li>O que significa dizer que os coelhos "destroem o próprio futuro"? Onde isso aparece nos gráficos?</li>
+        <li>Predadores matam coelhos. Como eles podem, mesmo assim, ajudar a população de coelhos a durar mais?</li>
+        <li>Por que duas simulações com os mesmos controles dão resultados diferentes? O que isso ensina sobre previsões em ecologia?</li>
+        <li>Se você fosse o gestor da ilha, qual intervenção faria primeiro, e em que momento? Teste a sua ideia.</li>
+        <li>Quais partes deste modelo são fatos medidos e quais são hipóteses? Como isso muda a confiança nos resultados?</li>
+      </ol></div>
+    </details>
+  </section>
   <!-- ===================== RELATÓRIO ===================== -->
   <section class="sec" id="relatorio">
     <div class="sec-cab">
-      <div><span class="kicker">12 · Relatório final</span><h2>O que aconteceu com a ilha</h2></div>
+      <div><span class="kicker">14 · Relatório final</span><h2>O que aconteceu com a ilha</h2></div>
       <div class="ctrl-linha nao-imprime">
         <button class="btn peq" id="expCsv">⬇ CSV por estação</button>
         <button class="btn peq" id="expCsvAno">⬇ CSV por ano</button>
         <button class="btn peq" id="expJson">⬇ JSON</button>
-        <button class="btn peq" id="expPrint">🖨 Imprimir</button>
+        <button class="btn peq pri" id="expRel">📄 Relatório em PDF</button><button class="btn peq" id="expRelHtml">⬇ Relatório (HTML)</button><button class="btn peq" id="expPrint">🖨 Imprimir página</button>
       </div>
     </div>
     <div class="grid g2">
@@ -409,7 +456,7 @@
   </section>
 
   <section class="sec metodo" id="metodo">
-    <div class="sec-cab"><div><span class="kicker">13 · Método e glossário</span><h2>Como o modelo funciona</h2>
+    <div class="sec-cab"><div><span class="kicker">15 · Método e glossário</span><h2>Como o modelo funciona</h2>
       <p>Etiquetas: <span class="tag lit">literatura</span> baseado em estudos publicados · <span class="tag hip">hipótese</span> escolhido para a ilha fictícia · <span class="tag cal">calibrado</span> derivado da premissa de 6.000 coelhos.</p></div></div>
     <div class="glossario">
       <div><b>Capacidade de suporte</b>Quantos animais um lugar alimenta sem se destruir. Muda com a estação, a chuva e o estado das plantas.</div>
@@ -510,9 +557,19 @@ CRA = 110 mm · (0,7+0,3·MO) · (1−0,3·crosta) · f(profundidade)</div>
       </div>
     </details>
   </section>
+  <section class="sec" id="sobre">
+    <div class="sec-cab"><div><span class="kicker">Sobre o site</span><h2>O que é isto, e o que não é</h2></div></div>
+    <div class="grid g3">
+      <div class="cartao"><h3>Um modelo, não uma previsão</h3><p class="sub" style="margin-top:6px">Este simulador é uma ferramenta de estudo. Ele mostra mecanismos reais da ecologia (superpopulação, sobrepastejo, predação, consanguinidade), mas muitos números são hipóteses para uma ilha fictícia. Use os resultados para entender por que as coisas acontecem, não para prever uma ilha real.</p></div>
+      <div class="cartao"><h3>Privacidade</h3><p class="sub" style="margin-top:6px">Tudo roda no seu navegador. O site não tem cadastro, não usa cookies de rastreamento e não envia os seus experimentos para nenhum servidor. O link de compartilhamento guarda o experimento no próprio endereço.</p></div>
+      <div class="cartao"><h3>Atalhos do teclado</h3><p class="sub" style="margin-top:6px"><span class="tecla">←</span> <span class="tecla">→</span> estação anterior e seguinte · <span class="tecla">Shift</span> + setas: um ano · <span class="tecla">Espaço</span>: reproduzir e pausar.</p></div>
+      <div class="cartao span2"><h3>Como citar</h3><p class="sub" style="margin-top:6px">Ilha: o experimento dos dois coelhos. Simulação ecológica baseada em indivíduos, motor <span id="versao2" class="notr"></span>. Para reproduzir um resultado, informe a duração, os controles alterados e o número da sorte, ou compartilhe o link do experimento.</p><div class="botoes" style="margin-top:8px"><button class="btn peq" id="sobreLink">🔗 Copiar link deste experimento</button><a class="btn peq" href="https://github.com/willkersonchess-netizen/Simula-o-de-coelhos-em-uma-ilha" target="_blank" rel="noopener">Código-fonte no GitHub</a></div></div>
+      <div class="cartao"><h3>Encontrou um erro?</h3><p class="sub" style="margin-top:6px">O código é aberto. Sugestões e correções podem ser enviadas pela página do projeto no GitHub.</p></div>
+    </div>
+  </section>
 </main>
 
-<footer class="rodape">Ilha · simulação ecológica independente · motor <span id="versao"></span></footer>
+<footer class="rodape">Ilha · simulação ecológica independente · motor <span id="versao" class="notr"></span></footer>
 </div>
 
 <!-- Máquina do tempo -->
@@ -533,10 +590,13 @@ CRA = 110 mm · (0,7+0,3·MO) · (1−0,3·crosta) · f(profundidade)</div>
   </div>
 </div>
 
+<button class="topo-btn" id="topoBtn" aria-label="Voltar ao topo" title="Voltar ao topo" hidden>↑</button>
 <div class="carregando" id="carregando" role="alert"><div class="cx"><div class="spinner"></div><div id="carregandoTxt">Simulando…</div></div></div>
 
 <script src="dados/resultados.js" onerror="window.ILHA_DADOS_ERRO=true"></script>
 <script src="js/engine.js"></script>
+<script src="js/i18n-dict.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/app.js"></script>
 </body>

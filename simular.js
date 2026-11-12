@@ -42,7 +42,7 @@ const igual = JSON.stringify(E.simular({ semente: SEMENTE, anos: ANOS }).registr
 const curta = E.simular({ semente: SEMENTE, anos: ANOS_PADRAO });
 const recorteOk = JSON.stringify(E.truncar(base, ANOS_PADRAO).registros) === JSON.stringify(curta.registros);
 let balancoOk = true;
-for (let i = 1; i < base.registros.length; i++) { const r = base.registros[i], a = base.registros[i - 1]; if (a.N + r.nasc - r.mortes !== r.N) balancoOk = false; }
+for (let i = 1; i < base.registros.length; i++) { const r = base.registros[i], a = base.registros[i - 1]; if (a.N + r.nasc + (r.soltos || 0) - r.mortes !== r.N) balancoOk = false; }
 console.log(`  Reprodutibilidade: ${igual ? 'OK' : 'FALHOU'} | Balanço: ${balancoOk ? 'OK' : 'FALHOU'} | Recorte 100→${ANOS_PADRAO} anos = simulação de ${ANOS_PADRAO}: ${recorteOk ? 'OK' : 'FALHOU'}`);
 
 const repsBase = reps({}, REPS_BASE, 'Monte Carlo (original)');
