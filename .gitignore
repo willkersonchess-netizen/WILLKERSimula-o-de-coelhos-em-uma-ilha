@@ -11,3 +11,12 @@ desktop.ini
 
 # pacotes gerados
 *.zip
+
+# arquivos de trabalho que o site nao usa
+AUDITORIA.md
+analyze_results.py
+*.bat
+dados/*.csv
+dados/*.json
+dados/*.md
+dados/*.txt
